@@ -32,3 +32,11 @@ CREATE TABLE entretien (
     cout DECIMAL(10,2),
     FOREIGN KEY (voiture_id) REFERENCES voiture(id)
 );
+
+
+CREATE TABLE IF NOT EXISTS utilisateur (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom_utilisateur VARCHAR(50) UNIQUE NOT NULL,
+    mot_de_passe VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'user') DEFAULT 'user'
+);
