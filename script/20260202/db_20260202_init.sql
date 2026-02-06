@@ -37,7 +37,7 @@ CREATE TABLE hotel(
 
 CREATE TABLE reservation (
     id SERIAL PRIMARY KEY,
-    idClient INTEGER NOT NULL,
+    idClient VARCHAR(50) NOT NULL,
     idHotel INTEGER NOT NULL REFERENCES hotel(id),
     dateArrivee TIMESTAMP NOT NULL,
     FOREIGN KEY (idHotel) REFERENCES hotel(id)
