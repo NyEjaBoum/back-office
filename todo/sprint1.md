@@ -1,36 +1,24 @@
-# Sprint 1 - CICD Naina
 
-## Tables à créer
-- Table `hotel` (id, nom)
-- Table `reservation` (id, client_id (4 chiffres), nombre_passager, date_heure_arrivee, id_hotel FK)
+## Back Office (BO) — Dev 3389
 
-## Back Office (BO)
-- Formulaire pour insérer une réservation (pas de protection)
-- Sélection du hotel via base (dropdown)
-- Pas d'interface hotel, mais script insertion hotel
-- Script d'insertion hotel
+1. **Script insertion hotel**
+	- Créer un script SQL pour insérer des hôtels dans la table `hotel`.
+	- Ce script sera exécuté pour ajouter les hôtels de référence dans la base.
 
-## Front Office (FO)
-- Liste des réservations
-- Filtre des réservations par date
+2. **Formulaire BO pour insérer réservation**
+	- Créer une page Back Office (avec le framework maison) pour ajouter une réservation.
+	- Champs : client_id (4 chiffres), nombre_passager, date_heure_arrivee, sélection d’un hôtel (dropdown).
+	- Pas besoin de protection/authentification pour ce formulaire dans ce sprint.
 
-## Architecture
-- FO et BO utilisent une seule base
-- FO n'attaque pas directement la base, mais appelle une API du BO
+3. **Dropdown hotel dans formulaire réservation**
+	- Le champ hôtel du formulaire doit être un dropdown alimenté dynamiquement depuis la base (liste des hôtels).
+	- Faire une requête pour récupérer tous les hôtels et remplir le dropdown.
 
----
-
-### Répartition des tâches
-
-**Dev 3657 :**
-- Liste FO des réservations
-- Filtre FO par date
-
-**Dev 3389 :**
-- Script insertion hotel
-- Formulaire BO pour insérer réservation
-- Dropdown hotel dans formulaire réservation
-- API BO pour exposer les réservations à FO
+4. **API BO pour exposer les réservations à FO**
+	- Créer une API REST (ex: `/api/reservations`) qui retourne la liste des réservations (avec infos hôtel associées).
+	- Cette API sera utilisée par le Front Office pour afficher les réservations.
+	- Utiliser le framework de ton projet pour créer ce endpoint.
 
 ---
+
 
