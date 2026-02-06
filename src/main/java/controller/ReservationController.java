@@ -27,8 +27,10 @@ public class ReservationController {
         try {
             HotelDao hotelDao = new HotelDao();
             List<Hotel> hotels = hotelDao.findAll();
+            System.out.println("Nombre d'hôtels trouvés: " + hotels.size());
             mv.addData("hotels", hotels);
         } catch (Exception e) {
+            e.printStackTrace(); // Affiche la stack trace complète
             mv.addData("error", "Erreur lors du chargement des hôtels: " + e.getMessage());
             mv.addData("hotels", new ArrayList<Hotel>());
         }
