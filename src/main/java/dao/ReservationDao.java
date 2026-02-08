@@ -7,6 +7,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,15 +15,21 @@ public class ReservationDao {
 
     public void insert(Reservation reservation) throws SQLException {
         String sql = "INSERT INTO reservation (idClient, nbPassager, idHotel, dateArrivee) VALUES (?, ?, ?, ?)";
-        
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
+
             stmt.setString(1, reservation.getIdClient());
             stmt.setInt(2, reservation.getNbPassager());
             stmt.setInt(3, reservation.getIdHotel());
-            stmt.setTimestamp(4, reservation.getDateArrivee());
-            
+
+            // Conversion String -> Timestamp
+            Timestamp ts = null;
+            if (reservation.getDateArrivee() != null && !reservation.getDateArrivee().isEmpty()) {
+                ts = Timestamp.valueOf(reservation.getDateArrivee());
+            }
+            stmt.setTimestamp(4, ts);
+
             stmt.executeUpdate();
         }
     }
@@ -33,18 +40,25 @@ public class ReservationDao {
                      "FROM reservation r " +
                      "JOIN hotel h ON r.idHotel = h.id " +
                      "ORDER BY r.dateArrivee DESC";
-        
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
-            
+
             while (rs.next()) {
                 Reservation reservation = new Reservation();
                 reservation.setId(rs.getInt("id"));
                 reservation.setIdClient(rs.getString("idClient"));
                 reservation.setNbPassager(rs.getInt("nbPassager"));
                 reservation.setIdHotel(rs.getInt("idHotel"));
-                reservation.setDateArrivee(rs.getTimestamp("dateArrivee"));
+
+                // Conversion Timestamp -> String
+                Timestamp ts = rs.getTimestamp("dateArrivee");
+                String dateStr = ts != null ? sdf.format(ts) : null;
+                reservation.setDateArrivee(dateStr);
+
                 reservation.setNomHotel(rs.getString("nomHotel"));
                 reservations.add(reservation);
             }
@@ -57,10 +71,12 @@ public class ReservationDao {
                      "FROM reservation r " +
                      "JOIN hotel h ON r.idHotel = h.id " +
                      "WHERE r.id = ?";
-        
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
+
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -69,7 +85,12 @@ public class ReservationDao {
                     reservation.setIdClient(rs.getString("idClient"));
                     reservation.setNbPassager(rs.getInt("nbPassager"));
                     reservation.setIdHotel(rs.getInt("idHotel"));
-                    reservation.setDateArrivee(rs.getTimestamp("dateArrivee"));
+
+                    // Conversion Timestamp -> String
+                    Timestamp ts = rs.getTimestamp("dateArrivee");
+                    String dateStr = ts != null ? sdf.format(ts) : null;
+                    reservation.setDateArrivee(dateStr);
+
                     reservation.setNomHotel(rs.getString("nomHotel"));
                     return reservation;
                 }

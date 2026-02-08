@@ -7,7 +7,7 @@ public class Reservation {
     private String idClient;
     private int nbPassager;
     private int idHotel;
-    private Timestamp dateArrivee;
+    private String dateArrivee;
     
     // Pour l'affichage avec les infos de l'hôtel
     private String nomHotel;
@@ -15,7 +15,7 @@ public class Reservation {
     public Reservation() {
     }
 
-    public Reservation(int id, String idClient, int nbPassager, int idHotel, Timestamp dateArrivee) {
+    public Reservation(int id, String idClient, int nbPassager, int idHotel, String dateArrivee) {
         this.id = id;
         this.idClient = idClient;
         this.nbPassager = nbPassager;
@@ -55,11 +55,11 @@ public class Reservation {
         this.idHotel = idHotel;
     }
 
-    public Timestamp getDateArrivee() {
+    public String getDateArrivee() {
         return dateArrivee;
     }
 
-    public void setDateArrivee(Timestamp dateArrivee) {
+    public void setDateArrivee(String dateArrivee) {
         this.dateArrivee = dateArrivee;
     }
 
