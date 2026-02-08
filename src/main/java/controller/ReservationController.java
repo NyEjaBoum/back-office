@@ -62,14 +62,16 @@ public class ReservationController {
             // Conversion de la date
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm");
             java.util.Date parsedDate = sdf.parse(dateHeureArrivee);
-            Timestamp timestamp = new Timestamp(parsedDate.getTime());
+            // Timestamp timestamp = new Timestamp(parsedDate.getTime());
             
             // Créer la réservation
             Reservation reservation = new Reservation();
             reservation.setIdClient(clientId);
             reservation.setNbPassager(nbPassager);
             reservation.setIdHotel(idHotel);
-            reservation.setDateArrivee(timestamp);
+            SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+String dateStr = sdf2.format(parsedDate);
+reservation.setDateArrivee(dateStr);
             
             // Sauvegarder en base
             ReservationDao reservationDao = new ReservationDao();
