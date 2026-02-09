@@ -10,7 +10,7 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
-
+import model.Hotel;
 public class ReservationDao {
 
     public void insert(Reservation reservation) throws SQLException {
@@ -36,7 +36,7 @@ public class ReservationDao {
 
     public List<Reservation> findAll() throws SQLException {
         List<Reservation> reservations = new ArrayList<>();
-        String sql = "SELECT r.id, r.idClient, r.nbPassager, r.idHotel, r.dateArrivee, h.nom AS nomHotel " +
+        String sql = "SELECT r.id, r.idClient, r.nbPassager, r.idHotel, r.dateArrivee, h.id AS hotelId, h.nom AS hotelNom " +
                      "FROM reservation r " +
                      "JOIN hotel h ON r.idHotel = h.id " +
                      "ORDER BY r.dateArrivee DESC";
@@ -59,7 +59,13 @@ public class ReservationDao {
                 String dateStr = ts != null ? sdf.format(ts) : null;
                 reservation.setDateArrivee(dateStr);
 
-                reservation.setNomHotel(rs.getString("nomHotel"));
+                // Création de l'objet Hotel
+                Hotel hotel = new Hotel();
+                hotel.setId(rs.getInt("hotelId"));
+                hotel.setNom(rs.getString("hotelNom"));
+                reservation.setHotel(hotel);
+
+                reservation.setNomHotel(rs.getString("hotelNom"));
                 reservations.add(reservation);
             }
         }
