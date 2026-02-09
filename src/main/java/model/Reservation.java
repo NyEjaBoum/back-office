@@ -1,7 +1,5 @@
 package model;
 
-import java.sql.Timestamp;
-
 public class Reservation {
     private int id;
     private String idClient;
@@ -12,15 +10,26 @@ public class Reservation {
     // Pour l'affichage avec les infos de l'hôtel
     private String nomHotel;
 
+    private Hotel hotel; // Association avec la classe Hotel
+
     public Reservation() {
     }
 
-    public Reservation(int id, String idClient, int nbPassager, int idHotel, String dateArrivee) {
+    public Reservation(int id, String idClient, int nbPassager, int idHotel, String dateArrivee, Hotel hotel) {
         this.id = id;
         this.idClient = idClient;
         this.nbPassager = nbPassager;
         this.idHotel = idHotel;
         this.dateArrivee = dateArrivee;
+        this.hotel = hotel;
+    }
+
+    public Hotel getHotel() {
+        return hotel;
+    }
+
+    public void setHotel(Hotel hotel) {
+        this.hotel = hotel;
     }
 
     public int getId() {
