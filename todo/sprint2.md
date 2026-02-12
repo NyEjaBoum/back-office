@@ -25,9 +25,3 @@
 		- `id`
 		- `token`
 		- `date_expiration`
-	- Pas besoin d’interface BO pour gérer le token dans ce sprint.
-	- Créer un `Main` (exécutable) qui permet de générer / régénérer un token et de mettre à jour la date d’expiration.
-
-4. **Token dans configuration**
-	- Mettre le token (ou la clé / secret de token) dans un fichier de configuration (ex: `src/main/resources/application.properties`).
-	- Tous les appels API côté client doivent lire ce token depuis la configuration et l’envoyer systématiquement.
