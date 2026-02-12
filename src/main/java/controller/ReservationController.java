@@ -10,6 +10,9 @@ import model.Reservation;
 import model.Hotel;
 import dao.ReservationDao;
 import dao.HotelDao;
+import dao.TokenDao;
+import model.Token;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
@@ -70,8 +73,8 @@ public class ReservationController {
             reservation.setNbPassager(nbPassager);
             reservation.setIdHotel(idHotel);
             SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-String dateStr = sdf2.format(parsedDate);
-reservation.setDateArrivee(dateStr);
+            String dateStr = sdf2.format(parsedDate);
+            reservation.setDateArrivee(dateStr);
             
             // Sauvegarder en base
             ReservationDao reservationDao = new ReservationDao();
@@ -98,12 +101,24 @@ reservation.setDateArrivee(dateStr);
     // API REST - Liste des réservations (avec infos hôtel)
     @Get("/api/reservations")
     @Json
-    public List<Reservation> listReservations() {
+    public Object listReservations(HttpServletRequest request) {
         try {
+            String tokenValue = request.getHeader("X-API-TOKEN");
+            if (tokenValue == null || tokenValue.isEmpty()) {
+                return java.util.Map.of("error", "token manquant");
+            }
+            TokenDao tokenDao = new TokenDao();
+            Token token = tokenDao.findByToken(tokenValue);
+            if (token == null) {
+                return java.util.Map.of("error", "token invalide");
+            }
+            if (token.getDateExpiration().before(new java.util.Date())) {
+                return java.util.Map.of("error", "token expire");
+            }
             ReservationDao reservationDao = new ReservationDao();
             return reservationDao.findAll();
         } catch (Exception e) {
-            return new ArrayList<>();
+            return java.util.Map.of("error", "Erreur serveur: " + e.getMessage());
         }
     }
 

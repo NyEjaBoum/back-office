@@ -1,7 +1,13 @@
 controller\ReservationController.class
 dao\HotelDao.class
+dao\TokenDao.class
 model\Hotel.class
 model\Employe.class
-model\Reservation.class
+model\Vehicule.class
 dao\DatabaseConnection.class
+dao\VehiculeDao.class
+model\Reservation.class
+controller\VehiculeController.class
+model\Token.class
+util\TokenGenerator.class
 dao\ReservationDao.class
