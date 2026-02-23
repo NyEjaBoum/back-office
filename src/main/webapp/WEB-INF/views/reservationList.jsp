@@ -154,7 +154,7 @@
                             <th>ID</th>
                             <th>Client</th>
                             <th>Passagers</th>
-                            <th>Hôtel</th>
+                            <th>Lieu</th>
                             <th>Date d'arrivée</th>
                         </tr>
                     </thead>
@@ -164,8 +164,8 @@
                                 <td><strong>#<%= reservation.getId() %></strong></td>
                                 <td><span class="badge badge-client"><%= reservation.getIdClient() %></span></td>
                                 <td><%= reservation.getNbPassager() %> 👤</td>
-                                <td><span class="badge badge-hotel">🏨 <%= reservation.getNomHotel() %></span></td>
-                                <td><%= sdf.format(reservation.getDateArrivee()) %></td>
+                                <td><span class="badge badge-hotel">📍 <%= reservation.getNomLieu() %></span></td>
+                                <td><%= sdf.format(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(reservation.getDateArrivee())) %></td>
                             </tr>
                         <% } %>
                     </tbody>
