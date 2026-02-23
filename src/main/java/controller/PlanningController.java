@@ -46,7 +46,7 @@ public class PlanningController {
             List<List<Reservation>> groupes = reservationDao.regrouperReservations(reservationsJour, tempsAttente);
 
             // 5. Planifier
-            Map<Vehicule, Map<String, Object>> planning = planningDao.planifier(groupes, vehicules, vehiculeDao);
+            Map<Vehicule, Map<String, Object>> planning = planningDao.planifier(groupes, vehicules, vehiculeDao, vitesseMoyenne);
 
             // 6. Construire les deux tableaux
             List<Map<String, Object>> vehiculesPlanifies = new ArrayList<>();

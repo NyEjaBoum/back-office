@@ -24,6 +24,24 @@ public class LieuDao {
         return lieux;
     }
 
+    public Lieu findByCode(String code) throws SQLException {
+        String sql = "SELECT id, code, libelle FROM lieu WHERE code = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, code);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Lieu lieu = new Lieu();
+                    lieu.setId(rs.getInt("id"));
+                    lieu.setCode(rs.getString("code"));
+                    lieu.setLibelle(rs.getString("libelle"));
+                    return lieu;
+                }
+            }
+        }
+        return null;
+    }
+
     public Lieu findById(int id) throws SQLException {
         String sql = "SELECT id, code, libelle FROM lieu WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();

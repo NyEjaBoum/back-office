@@ -11,8 +11,9 @@ TRUNCATE TABLE dev.lieu RESTART IDENTITY CASCADE;
 TRUNCATE TABLE dev.parametre RESTART IDENTITY CASCADE;
 TRUNCATE TABLE dev.distance RESTART IDENTITY CASCADE;
 
--- 1. Insérer des lieux
+-- 1. Insérer des lieux (id 1=Aeroport, 2=Colbert, 3=Novotel, 4=Ibis, 5=Lokanga, 6=Carlton)
 INSERT INTO dev.lieu (code, libelle) VALUES
+    ('AERO', 'Aeroport'),
     ('COLB', 'Colbert'),
     ('NOVO', 'Novotel'),
     ('IBIS', 'Ibis'),
@@ -32,31 +33,37 @@ INSERT INTO dev.parametre (vitesseMoyenne, tempsAttente) VALUES
     (40, 30);
 
 -- 4. Insérer des distances (en km, une seule ligne par paire)
--- id des lieux: 1=Colbert, 2=Novotel, 3=Ibis, 4=Lokanga, 5=Carlton
+-- id des lieux: 1=Aeroport, 2=Colbert, 3=Novotel, 4=Ibis, 5=Lokanga, 6=Carlton
 INSERT INTO dev.distance ("from", "to", km) VALUES
-    (1, 2, 3.5),
-    (1, 3, 2.2),
-    (1, 4, 5.0),
-    (1, 5, 4.1),
-    (2, 3, 1.8),
-    (2, 4, 3.7),
-    (2, 5, 2.9),
-    (3, 4, 4.5),
-    (3, 5, 2.0),
-    (4, 5, 3.3);
+    (1, 2, 7.0),
+    (1, 3, 5.0),
+    (1, 4, 6.0),
+    (1, 5, 10.0),
+    (1, 6, 8.0),
+    (2, 3, 3.5),
+    (2, 4, 2.2),
+    (2, 5, 5.0),
+    (2, 6, 4.1),
+    (3, 4, 1.8),
+    (3, 5, 3.7),
+    (3, 6, 2.9),
+    (4, 5, 4.5),
+    (4, 6, 2.0),
+    (5, 6, 3.3);
 
 -- 5. Insérer des réservations (dates proches pour tester le regroupement)
+-- Les idLieu pointent vers les hotels (2=Colbert, 3=Novotel, 4=Ibis, 5=Lokanga, 6=Carlton)
 INSERT INTO dev.reservation (idClient, nbPassager, idLieu, dateArrivee) VALUES
-    ('1001', 3, 1, '2026-03-01 08:00:00'),
-    ('1002', 2, 2, '2026-03-01 08:10:00'),
-    ('1003', 4, 3, '2026-03-01 08:25:00'),
-    ('1004', 7, 4, '2026-03-01 09:00:00'),
-    ('1005', 8, 5, '2026-03-01 09:05:00'),
-    ('1006', 1, 1, '2026-03-01 09:20:00'),
-    ('1007', 12, 2, '2026-03-01 10:00:00'),
-    ('1008', 5, 3, '2026-03-01 10:10:00'),
-    ('1009', 2, 4, '2026-03-01 10:15:00'),
-    ('1010', 15, 5, '2026-03-01 11:00:00');
+    ('1001', 3, 2, '2026-03-01 08:00:00'),
+    ('1002', 2, 3, '2026-03-01 08:10:00'),
+    ('1003', 4, 4, '2026-03-01 08:25:00'),
+    ('1004', 7, 5, '2026-03-01 09:00:00'),
+    ('1005', 8, 6, '2026-03-01 09:05:00'),
+    ('1006', 1, 2, '2026-03-01 09:20:00'),
+    ('1007', 12, 3, '2026-03-01 10:00:00'),
+    ('1008', 5, 4, '2026-03-01 10:10:00'),
+    ('1009', 2, 5, '2026-03-01 10:15:00'),
+    ('1010', 15, 6, '2026-03-01 11:00:00');
 
 -- 6. (Optionnel) Exemple d'assignation (à supprimer si tu veux tester l'algo)
 -- INSERT INTO dev.assignation (idVehicule, idReservation, datePlanification) VALUES
