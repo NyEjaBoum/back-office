@@ -3,9 +3,9 @@ package util;
 import dao.ReservationDao;
 import dao.VehiculeDao;
 import dao.PlanningDao;
-import dao.DistanceDao;
 import model.Reservation;
 import model.Vehicule;
+
 
 import java.util.List;
 import java.util.Map;
@@ -35,7 +35,7 @@ public class Main {
             List<List<Reservation>> groupes = reservationDao.regrouperReservations(reservations, tempsAttente);
 
             // 5. Planifier
-            Map<Vehicule, Map<String, Object>> planning = planningDao.planifier(groupes, vehicules, vehiculeDao);
+            Map<Vehicule, Map<String, Object>> planning = planningDao.planifier(groupes, vehicules, vehiculeDao, vitesseMoyenne);
 
             // 6. Affichage
             int i = 1;
@@ -49,11 +49,6 @@ public class Main {
                 System.out.println("Trajet " + i + " : " + entry.getKey());
                 for (Reservation r : groupe) {
                     System.out.println("  - " + r);
-                }
-                // Affichage des étapes de distance
-                List<String> etapes = planningDao.afficherEtapesDistance(groupe);
-                for (String etape : etapes) {
-                    System.out.println("    " + etape);
                 }
                 System.out.println("  Distance totale : " + distanceTotale + " km");
                 System.out.println("  Heure départ : " + heureDepart);

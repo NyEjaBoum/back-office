@@ -1,7 +1,8 @@
 -- Script création table assignation
 -- Date: 2026-02-23
 
-psql -U app_dev -d voiture_reservation;
+\c voiture_reservation;
+SET search_path TO dev;
 
 CREATE TABLE assignation (
     id SERIAL PRIMARY KEY,

@@ -1,7 +1,7 @@
-*.jar
 *.class
-*.jar
 *.lst
 *.war
 *.bat
-*.war
+
+target/
+build/

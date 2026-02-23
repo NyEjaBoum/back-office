@@ -7,174 +7,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liste des Réservations - Back Office</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            padding: 40px;
-        }
-        
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 28px;
-        }
-        
-        .alert {
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            font-weight: 500;
-        }
-        
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        
-        th, td {
-            padding: 15px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        th {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 1px;
-        }
-        
-        tr:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .empty-message {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-            font-size: 16px;
-        }
-        
-        .nav-links {
-            text-align: center;
-            margin-top: 30px;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 12px 25px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-        }
-        
-        .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        
-        .badge-hotel {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-        
-        .badge-client {
-            background: #f3e5f5;
-            color: #7b1fa2;
-        }
-    </style>
+    <title>Reservations</title>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css?v=2">
 </head>
 <body>
-    <div class="container">
+    <nav class="nav-bar">
+        <span class="nav-brand">Back Office</span>
+        <a href="${pageContext.request.contextPath}/reservations" class="active">Reservations</a>
+        <a href="${pageContext.request.contextPath}/vehicules">Vehicules</a>
+        <a href="${pageContext.request.contextPath}/planning">Planning</a>
+    </nav>
+
+    <div class="page">
         <div class="card">
-            <h1>📋 Liste des Réservations</h1>
-            
+            <div class="flex-between mb-16">
+                <h1 class="page-title" style="margin-bottom:0">Reservations</h1>
+                <a href="${pageContext.request.contextPath}/reservations/add" class="btn btn-primary">Nouvelle reservation</a>
+            </div>
+
             <% if (request.getAttribute("error") != null) { %>
-                <div class="alert alert-error">
-                    ❌ <%= request.getAttribute("error") %>
-                </div>
+                <div class="alert alert-error"><%= request.getAttribute("error") %></div>
             <% } %>
-            
+
             <%
                 List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
                 SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-                
+
                 if (reservations == null || reservations.isEmpty()) {
             %>
-                <div class="empty-message">
-                    <p>🔍 Aucune réservation trouvée</p>
-                </div>
+                <div class="empty-state">Aucune reservation trouvee.</div>
             <% } else { %>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Client</th>
-                            <th>Passagers</th>
-                            <th>Lieu</th>
-                            <th>Date d'arrivée</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% for (Reservation reservation : reservations) { %>
-                            <tr>
-                                <td><strong>#<%= reservation.getId() %></strong></td>
-                                <td><span class="badge badge-client"><%= reservation.getIdClient() %></span></td>
-                                <td><%= reservation.getNbPassager() %> 👤</td>
-                                <td><span class="badge badge-hotel">📍 <%= reservation.getNomLieu() %></span></td>
-                                <td><%= sdf.format(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(reservation.getDateArrivee())) %></td>
-                            </tr>
-                        <% } %>
-                    </tbody>
-                </table>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Client</th>
+                        <th>Passagers</th>
+                        <th>Lieu</th>
+                        <th>Date d'arrivee</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <% for (Reservation r : reservations) { %>
+                    <tr>
+                        <td class="text-muted">#<%= r.getId() %></td>
+                        <td><span class="badge badge-purple"><%= r.getIdClient() %></span></td>
+                        <td><%= r.getNbPassager() %></td>
+                        <td><span class="badge badge-blue"><%= r.getNomLieu() %></span></td>
+                        <td><%= sdf.format(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(r.getDateArrivee())) %></td>
+                    </tr>
+                <% } %>
+                </tbody>
+            </table>
             <% } %>
-            
-            <div class="nav-links">
-                <a href="${pageContext.request.contextPath}/reservations/add" class="btn">➕ Nouvelle réservation</a>
-            </div>
         </div>
     </div>
 </body>
