@@ -1,6 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.util.List" %>
-<%@ page import="model.Hotel" %>
+<%@ page import="model.Lieu" %>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -181,15 +181,15 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="idHotel">Hôtel</label>
-                    <select id="idHotel" name="idHotel" required>
-                        <option value="">-- Sélectionner un hôtel --</option>
+                    <label for="idLieu">Lieu</label>
+                    <select id="idLieu" name="idLieu" required>
+                        <option value="">-- Sélectionner un lieu --</option>
                         <%
-                            List<Hotel> hotels = (List<Hotel>) request.getAttribute("hotels");
-                            if (hotels != null) {
-                                for (Hotel hotel : hotels) {
+                            List<Lieu> lieux = (List<Lieu>) request.getAttribute("lieux");
+                            if (lieux != null) {
+                                for (Lieu lieu : lieux) {
                         %>
-                            <option value="<%= hotel.getId() %>"><%= hotel.getNom() %></option>
+                            <option value="<%= lieu.getId() %>"><%= lieu.getLibelle() %></option>
                         <%
                                 }
                             }

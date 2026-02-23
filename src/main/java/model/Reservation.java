@@ -4,85 +4,44 @@ public class Reservation {
     private int id;
     private String idClient;
     private int nbPassager;
-    private int idHotel;
+    private int idLieu;
     private String dateArrivee;
-    
-    // Pour l'affichage avec les infos de l'hôtel
-    private String nomHotel;
 
-    private Hotel hotel; // Association avec la classe Hotel
+    // Pour l'affichage avec les infos du lieu
+    private String nomLieu;
 
-    public Reservation() {
-    }
+    public Reservation() {}
 
-    public Reservation(int id, String idClient, int nbPassager, int idHotel, String dateArrivee, Hotel hotel) {
+    public Reservation(int id, String idClient, int nbPassager, int idLieu, String dateArrivee, String nomLieu) {
         this.id = id;
         this.idClient = idClient;
         this.nbPassager = nbPassager;
-        this.idHotel = idHotel;
+        this.idLieu = idLieu;
         this.dateArrivee = dateArrivee;
-        this.hotel = hotel;
+        this.nomLieu = nomLieu;
     }
 
-    public Hotel getHotel() {
-        return hotel;
-    }
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
 
-    public void setHotel(Hotel hotel) {
-        this.hotel = hotel;
-    }
+    public String getIdClient() { return idClient; }
+    public void setIdClient(String idClient) { this.idClient = idClient; }
 
-    public int getId() {
-        return id;
-    }
+    public int getNbPassager() { return nbPassager; }
+    public void setNbPassager(int nbPassager) { this.nbPassager = nbPassager; }
 
-    public void setId(int id) {
-        this.id = id;
-    }
+    public int getIdLieu() { return idLieu; }
+    public void setIdLieu(int idLieu) { this.idLieu = idLieu; }
 
-    public String getIdClient() {
-        return idClient;
-    }
+    public String getDateArrivee() { return dateArrivee; }
+    public void setDateArrivee(String dateArrivee) { this.dateArrivee = dateArrivee; }
 
-    public void setIdClient(String idClient) {
-        this.idClient = idClient;
-    }
-
-    public int getNbPassager() {
-        return nbPassager;
-    }
-
-    public void setNbPassager(int nbPassager) {
-        this.nbPassager = nbPassager;
-    }
-
-    public int getIdHotel() {
-        return idHotel;
-    }
-
-    public void setIdHotel(int idHotel) {
-        this.idHotel = idHotel;
-    }
-
-    public String getDateArrivee() {
-        return dateArrivee;
-    }
-
-    public void setDateArrivee(String dateArrivee) {
-        this.dateArrivee = dateArrivee;
-    }
-
-    public String getNomHotel() {
-        return nomHotel;
-    }
-
-    public void setNomHotel(String nomHotel) {
-        this.nomHotel = nomHotel;
-    }
+    public String getNomLieu() { return nomLieu; }
+    public void setNomLieu(String nomLieu) { this.nomLieu = nomLieu; }
 
     @Override
     public String toString() {
-        return "Reservation{id=" + id + ", idClient='" + idClient + "', nbPassager=" + nbPassager + 
-               ", idHotel=" + idHotel + ", dateArrivee=" + dateArrivee + ", nomHotel='" + nomHotel + "'}";
+        return "Reservation{id=" + id + ", idClient='" + idClient + "', nbPassager=" + nbPassager +
+               ", idLieu=" + idLieu + ", dateArrivee=" + dateArrivee + ", nomLieu='" + nomLieu + "'}";
     }
 }
