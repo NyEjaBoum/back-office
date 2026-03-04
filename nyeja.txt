@@ -59,10 +59,17 @@ psql -U app_dev -d voiture_reservation
 
 SET search_path TO dev;
 
+CREATE TABLE type_lieu (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    libelle VARCHAR(255) NOT NULL
+);
+
 CREATE TABLE lieu (
     id SERIAL PRIMARY KEY,
     code VARCHAR(50),
-    libelle VARCHAR(255)
+    libelle VARCHAR(255),
+    idTypeLieu INTEGER REFERENCES type_lieu(id)
 );
 
 CREATE TABLE reservation (
@@ -111,11 +118,14 @@ CREATE TABLE token (
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA dev TO app_dev;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA dev TO app_dev;
 
+
 -- =========================
 -- Tables STAGING
 -- =========================
 
+CREATE TABLE staging.type_lieu (LIKE dev.type_lieu INCLUDING ALL);
 CREATE TABLE staging.lieu (LIKE dev.lieu INCLUDING ALL);
+ALTER TABLE staging.lieu ADD CONSTRAINT lieu_idtypelieu_fkey FOREIGN KEY (idTypeLieu) REFERENCES staging.type_lieu(id);
 CREATE TABLE staging.parametre (LIKE dev.parametre INCLUDING ALL);
 CREATE TABLE staging.vehicule (LIKE dev.vehicule INCLUDING ALL);
 CREATE TABLE staging.token (LIKE dev.token INCLUDING ALL);
@@ -132,7 +142,9 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA staging TO app_staging;
 -- Tables PROD
 -- =========================
 
+CREATE TABLE prod.type_lieu (LIKE dev.type_lieu INCLUDING ALL);
 CREATE TABLE prod.lieu (LIKE dev.lieu INCLUDING ALL);
+ALTER TABLE prod.lieu ADD CONSTRAINT lieu_idtypelieu_fkey FOREIGN KEY (idTypeLieu) REFERENCES prod.type_lieu(id);
 CREATE TABLE prod.parametre (LIKE dev.parametre INCLUDING ALL);
 CREATE TABLE prod.vehicule (LIKE dev.vehicule INCLUDING ALL);
 CREATE TABLE prod.token (LIKE dev.token INCLUDING ALL);
