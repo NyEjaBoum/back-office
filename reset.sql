@@ -17,6 +17,7 @@ TRUNCATE TABLE dev.reservation RESTART IDENTITY CASCADE;
 TRUNCATE TABLE dev.vehicule RESTART IDENTITY CASCADE;
 TRUNCATE TABLE dev.parametre RESTART IDENTITY CASCADE;
 TRUNCATE TABLE dev.lieu RESTART IDENTITY CASCADE;
+TRUNCATE TABLE dev.type_lieu RESTART IDENTITY CASCADE;
 TRUNCATE TABLE dev.token RESTART IDENTITY CASCADE;
 
 -- STAGING
@@ -26,6 +27,7 @@ TRUNCATE TABLE staging.reservation RESTART IDENTITY CASCADE;
 TRUNCATE TABLE staging.vehicule RESTART IDENTITY CASCADE;
 TRUNCATE TABLE staging.parametre RESTART IDENTITY CASCADE;
 TRUNCATE TABLE staging.lieu RESTART IDENTITY CASCADE;
+TRUNCATE TABLE staging.type_lieu RESTART IDENTITY CASCADE;
 TRUNCATE TABLE staging.token RESTART IDENTITY CASCADE;
 
 -- PROD
@@ -35,20 +37,26 @@ TRUNCATE TABLE prod.reservation RESTART IDENTITY CASCADE;
 TRUNCATE TABLE prod.vehicule RESTART IDENTITY CASCADE;
 TRUNCATE TABLE prod.parametre RESTART IDENTITY CASCADE;
 TRUNCATE TABLE prod.lieu RESTART IDENTITY CASCADE;
+TRUNCATE TABLE prod.type_lieu RESTART IDENTITY CASCADE;
 TRUNCATE TABLE prod.token RESTART IDENTITY CASCADE;
 
 -- ===========================================
 -- INSERTION DES DONNÉES DE TEST
 -- ===========================================
 
+-- Types de lieux
+INSERT INTO dev.type_lieu (code, libelle) VALUES
+    ('AEROPORT', 'Aéroport'),
+    ('HOTEL', 'Hôtel');
+
 -- Lieux (1=Aeroport, 2=Colbert, 3=Novotel, 4=Ibis, 5=Lokanga, 6=Carlton)
-INSERT INTO dev.lieu (code, libelle) VALUES
-    ('AERO', 'Aeroport'),
-    ('COLB', 'Colbert'),
-    ('NOVO', 'Novotel'),
-    ('IBIS', 'Ibis'),
-    ('LOKA', 'Lokanga'),
-    ('CARL', 'Carlton');
+INSERT INTO dev.lieu (code, libelle, idTypeLieu) VALUES
+    ('AERO', 'Aeroport', (SELECT id FROM dev.type_lieu WHERE code = 'AEROPORT')),
+    ('COLB', 'Colbert', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
+    ('NOVO', 'Novotel', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
+    ('IBIS', 'Ibis', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
+    ('LOKA', 'Lokanga', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
+    ('CARL', 'Carlton', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL'));
 
 -- Véhicules
 INSERT INTO dev.vehicule (reference, nbrPlace, typeCarburant) VALUES
@@ -97,8 +105,11 @@ INSERT INTO dev.reservation (idClient, nbPassager, idLieu, dateArrivee) VALUES
 -- ===========================================
 -- COPIER VERS STAGING ET PROD
 -- ===========================================
-INSERT INTO staging.lieu (code, libelle) SELECT code, libelle FROM dev.lieu;
-INSERT INTO prod.lieu (code, libelle) SELECT code, libelle FROM dev.lieu;
+INSERT INTO staging.type_lieu (code, libelle) SELECT code, libelle FROM dev.type_lieu;
+INSERT INTO prod.type_lieu (code, libelle) SELECT code, libelle FROM dev.type_lieu;
+
+INSERT INTO staging.lieu (code, libelle, idTypeLieu) SELECT code, libelle, idTypeLieu FROM dev.lieu;
+INSERT INTO prod.lieu (code, libelle, idTypeLieu) SELECT code, libelle, idTypeLieu FROM dev.lieu;
 
 INSERT INTO staging.vehicule (reference, nbrPlace, typeCarburant) SELECT reference, nbrPlace, typeCarburant FROM dev.vehicule;
 INSERT INTO prod.vehicule (reference, nbrPlace, typeCarburant) SELECT reference, nbrPlace, typeCarburant FROM dev.vehicule;

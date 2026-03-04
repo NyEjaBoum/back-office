@@ -11,12 +11,46 @@ public class PlanningDao {
     private LieuDao lieuDao = new LieuDao();
 
     /**
-     * Retourne l'id du lieu "Aeroport" (code = AERO)
+     * Retourne la liste de tous les lieux de type AEROPORT
      */
-    private int getIdAeroport() throws Exception {
-        Lieu aeroport = lieuDao.findByCode("AERO");
-        if (aeroport == null) throw new Exception("Lieu 'AERO' introuvable en base");
-        return aeroport.getId();
+    private List<Integer> getIdAeroports() throws Exception {
+        List<Lieu> aeroports = lieuDao.findByType("AEROPORT");
+        if (aeroports.isEmpty()) throw new Exception("Aucun lieu de type AEROPORT trouvé en base");
+        List<Integer> ids = new ArrayList<>();
+        for (Lieu l : aeroports) ids.add(l.getId());
+        return ids;
+    }
+
+    /**
+     * Trouve l'aéroport le plus proche d'un ensemble de lieux
+     * @param lieuxIds Liste des ids de lieux (hôtels)
+     * @return L'id de l'aéroport le plus proche
+     */
+    private int trouverAeroportLePlusProche(List<Integer> lieuxIds) throws Exception {
+        List<Integer> aeroports = getIdAeroports();
+        if (aeroports.size() == 1) {
+            return aeroports.get(0);
+        }
+        
+        int meilleurAeroport = aeroports.get(0);
+        double minDistanceTotale = Double.MAX_VALUE;
+        
+        for (Integer idAeroport : aeroports) {
+            double distanceTotale = 0.0;
+            for (Integer idLieu : lieuxIds) {
+                try {
+                    double dist = distanceDao.getDistance(idAeroport, idLieu);
+                    if (dist >= 0) distanceTotale += dist;
+                } catch (Exception e) {
+                    // Distance non trouvée, on ignore
+                }
+            }
+            if (distanceTotale < minDistanceTotale) {
+                minDistanceTotale = distanceTotale;
+                meilleurAeroport = idAeroport;
+            }
+        }
+        return meilleurAeroport;
     }
 
     /**
@@ -42,6 +76,9 @@ public class PlanningDao {
                 nomParLieu.put(r.getIdLieu(), r.getNomLieu());
             }
         }
+
+        // Trouver l'aéroport le plus proche des lieux de la réservation
+        int idAeroport = trouverAeroportLePlusProche(lieux);
 
         double total = 0.0;
         List<Integer> nonVisites = new ArrayList<>(lieux);
