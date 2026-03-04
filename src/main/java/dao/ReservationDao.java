@@ -9,65 +9,48 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import model.Lieu;
+import java.util.Map;
 
 public class ReservationDao {
 
     public void insert(Reservation reservation) throws SQLException {
         String sql = "INSERT INTO reservation (idClient, nbPassager, idLieu, dateArrivee) VALUES (?, ?, ?, ?)";
-
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, reservation.getIdClient());
             stmt.setInt(2, reservation.getNbPassager());
-                stmt.setInt(3, reservation.getIdLieu()); // À renommer en getIdLieu() dans Reservation si tu veux être cohérent
-
-            // Conversion String -> Timestamp
+            stmt.setInt(3, reservation.getIdLieu());
             Timestamp ts = null;
             if (reservation.getDateArrivee() != null && !reservation.getDateArrivee().isEmpty()) {
                 ts = Timestamp.valueOf(reservation.getDateArrivee());
             }
             stmt.setTimestamp(4, ts);
-
             stmt.executeUpdate();
         }
     }
 
     public List<Reservation> findAll() throws SQLException {
         List<Reservation> reservations = new ArrayList<>();
-        String sql = "SELECT r.id, r.idClient, r.nbPassager, r.idLieu, r.dateArrivee, l.id AS lieuId, l.libelle AS lieuNom " +
+        String sql = "SELECT r.id, r.idClient, r.nbPassager, r.idLieu, r.dateArrivee, l.libelle AS lieuNom " +
                      "FROM reservation r " +
                      "JOIN lieu l ON r.idLieu = l.id " +
                      "ORDER BY r.dateArrivee DESC";
-
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
-
             while (rs.next()) {
-                Reservation reservation = new Reservation();
-                reservation.setId(rs.getInt("id"));
-                reservation.setIdClient(rs.getString("idClient"));
-                reservation.setNbPassager(rs.getInt("nbPassager"));
-                    reservation.setIdLieu(rs.getInt("idLieu")); // À renommer en setIdLieu() dans Reservation si tu veux être cohérent
-
-                // Conversion Timestamp -> String
+                Reservation r = new Reservation();
+                r.setId(rs.getInt("id"));
+                r.setIdClient(rs.getString("idClient"));
+                r.setNbPassager(rs.getInt("nbPassager"));
+                r.setIdLieu(rs.getInt("idLieu"));
                 Timestamp ts = rs.getTimestamp("dateArrivee");
-                String dateStr = ts != null ? sdf.format(ts) : null;
-                reservation.setDateArrivee(dateStr);
-
-                // Création de l'objet Hotel (à remplacer par Lieu si tu as une classe Lieu)
-                    // Lieu lieu = new Lieu();
-                    // lieu.setId(rs.getInt("lieuId"));
-                    // lieu.setLibelle(rs.getString("lieuNom"));
-                    // reservation.setLieu(lieu);
-
-                    reservation.setNomLieu(rs.getString("lieuNom")); // À renommer en setNomLieu() si tu veux être cohérent
-                reservations.add(reservation);
+                r.setDateArrivee(ts != null ? sdf.format(ts) : null);
+                r.setNomLieu(rs.getString("lieuNom"));
+                reservations.add(r);
             }
         }
         return reservations;
@@ -78,12 +61,9 @@ public class ReservationDao {
                      "FROM reservation r " +
                      "JOIN lieu l ON r.idLieu = l.id " +
                      "WHERE r.id = ?";
-
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -91,14 +71,10 @@ public class ReservationDao {
                     reservation.setId(rs.getInt("id"));
                     reservation.setIdClient(rs.getString("idClient"));
                     reservation.setNbPassager(rs.getInt("nbPassager"));
-                        reservation.setIdLieu(rs.getInt("idLieu")); // À renommer en setIdLieu()
-
-                    // Conversion Timestamp -> String
+                    reservation.setIdLieu(rs.getInt("idLieu"));
                     Timestamp ts = rs.getTimestamp("dateArrivee");
-                    String dateStr = ts != null ? sdf.format(ts) : null;
-                    reservation.setDateArrivee(dateStr);
-
-                        reservation.setNomLieu(rs.getString("nomLieu")); // À renommer en setNomLieu()
+                    reservation.setDateArrivee(ts != null ? sdf.format(ts) : null);
+                    reservation.setNomLieu(rs.getString("nomLieu"));
                     return reservation;
                 }
             }
@@ -114,12 +90,9 @@ public class ReservationDao {
                      "JOIN lieu l ON r.idLieu = l.id " +
                      "WHERE r.dateArrivee::date = ? " +
                      "ORDER BY r.dateArrivee ASC";
-
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            // S'assurer que date est bien au format "yyyy-MM-dd"
             if (date.length() > 10) date = date.substring(0, 10);
             stmt.setDate(1, java.sql.Date.valueOf(date));
             try (ResultSet rs = stmt.executeQuery()) {
@@ -128,12 +101,10 @@ public class ReservationDao {
                     reservation.setId(rs.getInt("id"));
                     reservation.setIdClient(rs.getString("idClient"));
                     reservation.setNbPassager(rs.getInt("nbPassager"));
-                        reservation.setIdLieu(rs.getInt("idLieu")); // À renommer en setIdLieu()
-                    // Conversion Timestamp -> String
-                    java.sql.Timestamp ts = rs.getTimestamp("dateArrivee");
-                    String dateStr = ts != null ? sdf.format(ts) : null;
-                    reservation.setDateArrivee(dateStr);
-                        reservation.setNomLieu(rs.getString("nomLieu")); // À renommer en setNomLieu()
+                    reservation.setIdLieu(rs.getInt("idLieu"));
+                    Timestamp ts = rs.getTimestamp("dateArrivee");
+                    reservation.setDateArrivee(ts != null ? sdf.format(ts) : null);
+                    reservation.setNomLieu(rs.getString("nomLieu"));
                     reservations.add(reservation);
                 }
             }
@@ -143,56 +114,80 @@ public class ReservationDao {
     }
 
     /**
-     * Regroupe les réservations selon les règles métier :
-     * - Tri par heure d'arrivée
-     * - Regroupement selon tempsAttente
-     * - Jamais diviser une réservation
-     * (La capacité du véhicule sera vérifiée lors de l'assignation)
+     * Regroupe les réservations par vol.
+     *
+     * LOGIQUE :
+     * - Les réservations sont déjà triées par dateArrivee ASC (fait dans findByDate)
+     * - On parcourt chaque réservation et on cherche un groupe existant dont
+     *   l'heure de DÉBUT du groupe est dans la fenêtre tempsAttente
+     *   (|dateArrivee_reservation - heureDebut_groupe| <= tempsAttente)
+     * - Si tempsAttente = 0 : seules les réservations à la même heure EXACTE sont regroupées
+     * - Si tempsAttente > 0 : les réservations dans la fenêtre sont regroupées ensemble
+     *
+     * Exemple tempsAttente=30min :
+     *   A(09:00), B(09:00), C(09:30) → même groupe car 09:30 - 09:00 = 30min <= 30min
+     *
+     * Exemple tempsAttente=0 :
+     *   A(09:00), B(09:00), C(09:30) → 2 groupes : {A,B} et {C}
+     *
+     * Les réservations de chaque groupe sont ensuite triées par nbPassager DÉCROISSANT
+     * pour que les plus grosses soient traitées en premier lors de la planification.
      */
-    public List<List<Reservation>> regrouperReservations(List<Reservation> reservations, int tempsAttente) {
-        trierParHeureArrivee(reservations);
-        List<List<Reservation>> groupes = new ArrayList<>();
+    public Map<String, List<Reservation>> regrouperParVol(List<Reservation> reservations, int tempsAttente) {
+        // clé = heure du PREMIER arrivé du groupe (heure de référence du vol)
+        Map<String, List<Reservation>> vols = new LinkedHashMap<>();
+
         for (Reservation r : reservations) {
-            boolean added = false;
-            for (List<Reservation> groupe : groupes) {
-                if (peutAjouterAuGroupe(groupe, r, tempsAttente)) {
-                    groupe.add(r);
-                    added = true;
+            String heureR = r.getDateArrivee(); // format "yyyy-MM-dd HH:mm:ss"
+            String groupeTrouve = null;
+
+            // Chercher un groupe existant dont l'heure de début est dans la fenêtre
+            for (String heureGroupe : vols.keySet()) {
+                long diffMinutes = Math.abs(diffEnMinutes(heureR, heureGroupe));
+                if (diffMinutes <= tempsAttente) {
+                    groupeTrouve = heureGroupe;
                     break;
                 }
             }
-            if (!added) {
+
+            if (groupeTrouve != null) {
+                vols.get(groupeTrouve).add(r);
+            } else {
+                // Nouveau groupe : la clé est l'heure de cette réservation
                 List<Reservation> newGroupe = new ArrayList<>();
                 newGroupe.add(r);
-                groupes.add(newGroupe);
+                vols.put(heureR, newGroupe);
             }
         }
-        return groupes;
-    }
 
-    /** Trie la liste par heure d'arrivée (bubble sort pour éviter Comparator) */
-    private void trierParHeureArrivee(List<Reservation> reservations) {
-        for (int i = 0; i < reservations.size() - 1; i++) {
-            for (int j = 0; j < reservations.size() - i - 1; j++) {
-                String date1 = reservations.get(j).getDateArrivee();
-                String date2 = reservations.get(j + 1).getDateArrivee();
-                if (date1.compareTo(date2) > 0) {
-                    Reservation tmp = reservations.get(j);
-                    reservations.set(j, reservations.get(j + 1));
-                    reservations.set(j + 1, tmp);
+        // Trier chaque groupe par nbPassager DÉCROISSANT
+        for (List<Reservation> groupe : vols.values()) {
+            // Bubble sort décroissant
+            for (int i = 0; i < groupe.size() - 1; i++) {
+                for (int j = 0; j < groupe.size() - i - 1; j++) {
+                    if (groupe.get(j).getNbPassager() < groupe.get(j + 1).getNbPassager()) {
+                        Reservation tmp = groupe.get(j);
+                        groupe.set(j, groupe.get(j + 1));
+                        groupe.set(j + 1, tmp);
+                    }
                 }
             }
         }
+
+        return vols;
     }
 
-    /** Vérifie si on peut ajouter la réservation r au groupe selon l'écart d'heure d'arrivée */
-    private boolean peutAjouterAuGroupe(List<Reservation> groupe, Reservation r, int tempsAttente) {
-        if (groupe.isEmpty()) return true;
-        Reservation first = groupe.get(0);
-        long diff = Math.abs(
-            java.sql.Timestamp.valueOf(r.getDateArrivee()).getTime() -
-            java.sql.Timestamp.valueOf(first.getDateArrivee()).getTime()
-        ) / (60 * 1000); // minutes
-        return diff <= tempsAttente;
+    /**
+     * Calcule la différence en minutes entre deux dates au format "yyyy-MM-dd HH:mm:ss"
+     * Retourne heure2 - heure1 en minutes
+     */
+    private long diffEnMinutes(String heure1, String heure2) {
+        try {
+            long ts1 = java.sql.Timestamp.valueOf(heure1).getTime();
+            long ts2 = java.sql.Timestamp.valueOf(heure2).getTime();
+            return (ts2 - ts1) / (60 * 1000);
+        } catch (Exception e) {
+            return Long.MAX_VALUE;
+        }
     }
 }

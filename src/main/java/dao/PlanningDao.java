@@ -20,18 +20,18 @@ public class PlanningDao {
     }
 
     /**
-     * Calcule la distance totale (greedy) pour un groupe de reservations.
-     * Trajet : Aeroport -> lieux (greedy nearest neighbor) -> Aeroport
+     * Calcule la distance totale (greedy nearest neighbor) pour une liste de réservations.
+     * Trajet : Aeroport -> lieux -> Aeroport
      */
-    public double calculerDistanceGreedy(List<Reservation> groupe) throws Exception {
+    public double calculerDistanceGreedy(List<Reservation> reservations) throws Exception {
         int idAeroport = getIdAeroport();
-        List<Integer> lieux = extraireLieux(groupe);
+        List<Integer> lieux = extraireLieuxUniques(reservations);
         if (lieux.isEmpty()) return 0.0;
 
         double total = 0.0;
         List<Integer> nonVisites = new ArrayList<>(lieux);
 
-        // Aeroport -> premier lieu le plus proche
+        // Aeroport -> lieu le plus proche
         Integer current = null;
         double minDist = Double.MAX_VALUE;
         for (Integer l : nonVisites) {
@@ -45,17 +45,14 @@ public class PlanningDao {
         total += minDist;
         nonVisites.remove(current);
 
-        // Greedy : lieu courant -> lieu le plus proche non visite
+        // Greedy : lieu courant -> lieu le plus proche non visité
         while (!nonVisites.isEmpty()) {
             Integer next = null;
             minDist = Double.MAX_VALUE;
             for (Integer l : nonVisites) {
                 double dist;
-                try {
-                    dist = distanceDao.getDistance(current, l);
-                } catch (Exception e) {
-                    dist = Double.MAX_VALUE;
-                }
+                try { dist = distanceDao.getDistance(current, l); }
+                catch (Exception e) { dist = Double.MAX_VALUE; }
                 if (dist >= 0 && dist < minDist) {
                     minDist = dist;
                     next = l;
@@ -67,19 +64,17 @@ public class PlanningDao {
             nonVisites.remove(next);
         }
 
-        // Dernier lieu -> Aeroport (retour)
+        // Dernier lieu -> Aeroport
         double retour = distanceDao.getDistance(current, idAeroport);
-        if (retour >= 0) {
-            total += retour;
-        }
+        if (retour >= 0) total += retour;
 
         return total;
     }
 
-    /** Extrait les lieux uniques d'un groupe */
-    private List<Integer> extraireLieux(List<Reservation> groupe) {
+    /** Extrait les lieux uniques d'une liste de réservations */
+    private List<Integer> extraireLieuxUniques(List<Reservation> reservations) {
         List<Integer> lieux = new ArrayList<>();
-        for (Reservation r : groupe) {
+        for (Reservation r : reservations) {
             if (!lieux.contains(r.getIdLieu())) {
                 lieux.add(r.getIdLieu());
             }
@@ -88,66 +83,190 @@ public class PlanningDao {
     }
 
     /**
-     * Retourne l'heure d'arrivee la plus tardive du groupe
+     * PLANIFICATION PRINCIPALE
+     *
+     * Pour chaque vol (même date+heure exacte) :
+     *   Les réservations sont déjà triées par nbPassager DÉCROISSANT (fait dans regrouperParVol)
+     *
+     *   Pour chaque réservation du vol :
+     *     1. Chercher un véhicule déjà utilisé dans ce vol avec assez de places restantes
+     *     2. Sinon, chercher un nouveau véhicule disponible (pas encore utilisé ce vol)
+     *     3. Si trouvé : assigner la réservation à ce véhicule
+     *     4. Si non trouvé : réservation non assignée
+     *
+     *   Règle véhicule : places restantes >= nbPassagers de la réservation
+     *   Choix : plus petit véhicule qui convient, priorité Diesel
      */
-    private String getHeureDepartGroupe(List<Reservation> groupe) {
-        String max = groupe.get(0).getDateArrivee();
-        for (Reservation r : groupe) {
-            if (r.getDateArrivee().compareTo(max) > 0) {
-                max = r.getDateArrivee();
+    public Map<String, Object> planifier(
+            Map<String, List<Reservation>> vols,
+            List<Vehicule> vehicules,
+            double vitesseMoyenne) {
+
+        List<Map<String, Object>> trajets = new ArrayList<>();
+        List<Reservation> nonAssignees = new ArrayList<>();
+
+        // vehiculeId -> heure de retour (pour savoir si le véhicule est libre pour un prochain vol)
+        Map<Integer, String> vehiculeHeureRetour = new HashMap<>();
+
+        for (Map.Entry<String, List<Reservation>> entry : vols.entrySet()) {
+            String heureVol = entry.getKey();
+            List<Reservation> reservationsVol = entry.getValue();
+            // Réservations déjà triées par nbPassager décroissant (fait dans regrouperParVol)
+
+            // Pour ce vol : vehiculeId -> places restantes
+            Map<Integer, Integer> placesRestantes = new HashMap<>();
+            // Pour ce vol : vehiculeId -> liste des réservations assignées
+            Map<Integer, List<Reservation>> assignationsVol = new LinkedHashMap<>();
+
+            // Initialiser les places restantes pour les véhicules DISPONIBLES à cette heure
+            for (Vehicule v : vehicules) {
+                String heureRetourV = vehiculeHeureRetour.get(v.getId());
+                boolean disponible = (heureRetourV == null || heureRetourV.compareTo(heureVol) <= 0);
+                if (disponible) {
+                    placesRestantes.put(v.getId(), v.getNbrPlace());
+                }
+            }
+
+            // Traiter chaque réservation du vol (du plus grand au plus petit groupe)
+            for (Reservation r : reservationsVol) {
+                int nbPassagers = r.getNbPassager();
+                Integer vehiculeChoisiId = null;
+
+                // Étape 1 : chercher un véhicule DÉJÀ utilisé dans ce vol avec assez de place
+                // (pour regrouper au maximum dans les véhicules déjà ouverts)
+                vehiculeChoisiId = chercherVehiculeDejaUtilise(assignationsVol, placesRestantes, nbPassagers, vehicules);
+
+                // Étape 2 : si aucun véhicule déjà utilisé ne convient, prendre un nouveau véhicule
+                if (vehiculeChoisiId == null) {
+                    vehiculeChoisiId = chercherNouveauVehicule(assignationsVol, placesRestantes, nbPassagers, vehicules);
+                }
+
+                if (vehiculeChoisiId != null) {
+                    // Assigner
+                    if (!assignationsVol.containsKey(vehiculeChoisiId)) {
+                        assignationsVol.put(vehiculeChoisiId, new ArrayList<>());
+                    }
+                    assignationsVol.get(vehiculeChoisiId).add(r);
+                    placesRestantes.put(vehiculeChoisiId, placesRestantes.get(vehiculeChoisiId) - nbPassagers);
+                } else {
+                    nonAssignees.add(r);
+                }
+            }
+
+            // Créer les trajets pour ce vol
+            for (Map.Entry<Integer, List<Reservation>> assignation : assignationsVol.entrySet()) {
+                int vehiculeId = assignation.getKey();
+                List<Reservation> reservationsAssignees = assignation.getValue();
+
+                Vehicule v = trouverVehiculeParId(vehicules, vehiculeId);
+
+                double distanceTotale = 0.0;
+                try { distanceTotale = calculerDistanceGreedy(reservationsAssignees); }
+                catch (Exception e) { distanceTotale = 0.0; }
+
+                long dureeMs = (long) ((distanceTotale / vitesseMoyenne) * 3600 * 1000);
+                String heureRetour = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                    .format(new java.util.Date(java.sql.Timestamp.valueOf(heureVol).getTime() + dureeMs));
+
+                // Mettre à jour l'heure de retour du véhicule
+                vehiculeHeureRetour.put(vehiculeId, heureRetour);
+
+                Map<String, Object> trajet = new LinkedHashMap<>();
+                trajet.put("vehicule", v);
+                trajet.put("reservations", reservationsAssignees);
+                trajet.put("distanceTotale", distanceTotale);
+                trajet.put("heureDepart", heureVol);
+                trajet.put("heureRetour", heureRetour);
+                trajets.add(trajet);
             }
         }
-        return max;
+
+        Map<String, Object> resultat = new HashMap<>();
+        resultat.put("trajets", trajets);
+        resultat.put("nonAssignees", nonAssignees);
+        return resultat;
     }
 
     /**
-     * Planifie les groupes de reservations avec assignation des vehicules.
-     * - heureDepart = heure d'arrivee la plus tardive du groupe
-     * - heureRetour = heureDepart + (distanceTotale / vitesseMoyenne)
+     * Cherche un véhicule déjà utilisé dans ce vol avec assez de places restantes.
+     * Prend le plus petit véhicule qui convient (priorité Diesel).
      */
-    public Map<Vehicule, Map<String, Object>> planifier(
-            List<List<Reservation>> groupes,
-            List<Vehicule> vehicules,
-            VehiculeDao vehiculeDao,
-            double vitesseMoyenne) {
+    private Integer chercherVehiculeDejaUtilise(
+            Map<Integer, List<Reservation>> assignationsVol,
+            Map<Integer, Integer> placesRestantes,
+            int nbPassagers,
+            List<Vehicule> vehicules) {
 
-        Map<Vehicule, Map<String, Object>> planning = new LinkedHashMap<>();
-        Set<Integer> vehiculesOccupes = new HashSet<>();
-
-        for (List<Reservation> groupe : groupes) {
-            int nbPassagersGroupe = 0;
-            for (Reservation r : groupe) nbPassagersGroupe += r.getNbPassager();
-
-            List<Vehicule> candidats = vehiculeDao.filtrerVehiculesCandidats(vehicules, nbPassagersGroupe, vehiculesOccupes);
-            Vehicule choisi = vehiculeDao.choisirVehicule(candidats);
-
-            if (choisi != null) {
-                vehiculesOccupes.add(choisi.getId());
-
-                double distanceTotale;
-                try {
-                    distanceTotale = calculerDistanceGreedy(groupe);
-                } catch (Exception e) {
-                    distanceTotale = 0.0;
-                }
-
-                // Depart = heure d'arrivee la plus tardive du groupe
-                String heureDepart = getHeureDepartGroupe(groupe);
-
-                // Retour = depart + (distanceTotale / vitesseMoyenne) en heures
-                long dureeMs = (long) ((distanceTotale / vitesseMoyenne) * 3600 * 1000);
-                String heureRetour = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                    .format(new java.util.Date(java.sql.Timestamp.valueOf(heureDepart).getTime() + dureeMs));
-
-                Map<String, Object> info = new HashMap<>();
-                info.put("reservations", groupe);
-                info.put("distanceTotale", distanceTotale);
-                info.put("heureDepart", heureDepart);
-                info.put("heureRetour", heureRetour);
-
-                planning.put(choisi, info);
+        List<Vehicule> candidats = new ArrayList<>();
+        for (Integer vid : assignationsVol.keySet()) {
+            Integer places = placesRestantes.get(vid);
+            if (places != null && places >= nbPassagers) {
+                Vehicule v = trouverVehiculeParId(vehicules, vid);
+                if (v != null) candidats.add(v);
             }
         }
-        return planning;
+        return choisirMeilleurVehicule(candidats, placesRestantes);
+    }
+
+    /**
+     * Cherche un nouveau véhicule pas encore utilisé dans ce vol avec assez de places.
+     * Prend le plus petit véhicule qui convient (priorité Diesel).
+     */
+    private Integer chercherNouveauVehicule(
+            Map<Integer, List<Reservation>> assignationsVol,
+            Map<Integer, Integer> placesRestantes,
+            int nbPassagers,
+            List<Vehicule> vehicules) {
+
+        List<Vehicule> candidats = new ArrayList<>();
+        for (Map.Entry<Integer, Integer> entry : placesRestantes.entrySet()) {
+            int vid = entry.getKey();
+            int places = entry.getValue();
+            // Pas encore utilisé dans ce vol ET assez de places
+            if (!assignationsVol.containsKey(vid) && places >= nbPassagers) {
+                Vehicule v = trouverVehiculeParId(vehicules, vid);
+                if (v != null) candidats.add(v);
+            }
+        }
+        return choisirMeilleurVehicule(candidats, placesRestantes);
+    }
+
+    /**
+     * Parmi les candidats, choisit le véhicule avec le moins de places restantes
+     * (le plus petit qui convient), priorité Diesel en cas d'égalité.
+     * Retourne l'id du véhicule choisi, ou null si aucun candidat.
+     */
+    private Integer choisirMeilleurVehicule(List<Vehicule> candidats, Map<Integer, Integer> placesRestantes) {
+        if (candidats.isEmpty()) return null;
+
+        // Tri par places restantes croissantes (bubble sort)
+        for (int i = 0; i < candidats.size() - 1; i++) {
+            for (int j = 0; j < candidats.size() - i - 1; j++) {
+                int p1 = placesRestantes.get(candidats.get(j).getId());
+                int p2 = placesRestantes.get(candidats.get(j + 1).getId());
+                if (p1 > p2) {
+                    Vehicule tmp = candidats.get(j);
+                    candidats.set(j, candidats.get(j + 1));
+                    candidats.set(j + 1, tmp);
+                }
+            }
+        }
+
+        // Parmi ceux avec le même nombre de places restantes, priorité Diesel
+        int minPlaces = placesRestantes.get(candidats.get(0).getId());
+        for (Vehicule v : candidats) {
+            if (placesRestantes.get(v.getId()) == minPlaces && "D".equals(v.getTypeCarburant())) {
+                return v.getId();
+            }
+        }
+        return candidats.get(0).getId();
+    }
+
+    /** Trouve un véhicule dans la liste par son id */
+    private Vehicule trouverVehiculeParId(List<Vehicule> vehicules, int id) {
+        for (Vehicule v : vehicules) {
+            if (v.getId() == id) return v;
+        }
+        return null;
     }
 }

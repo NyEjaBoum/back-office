@@ -3,72 +3,70 @@ package util;
 import dao.ReservationDao;
 import dao.VehiculeDao;
 import dao.PlanningDao;
+import dao.ParametreDao;
 import model.Reservation;
 import model.Vehicule;
-
-
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.HashSet;
+import java.util.*;
 
 public class Main {
     public static void main(String[] args) {
         try {
-            String date = "2026-03-01"; // Mets ici la date que tu veux tester
+            String date = "2026-03-01";
 
             ReservationDao reservationDao = new ReservationDao();
             VehiculeDao vehiculeDao = new VehiculeDao();
             PlanningDao planningDao = new PlanningDao();
+            ParametreDao parametreDao = new ParametreDao();
 
-            // 1. Récupérer les réservations du jour depuis la base
+            // 1. Réservations du jour
             List<Reservation> reservations = reservationDao.findByDate(date);
 
-            // 2. Récupérer tous les véhicules depuis la base
+            // 2. Véhicules
             List<Vehicule> vehicules = vehiculeDao.findAll();
 
-            // 3. Paramètres (à récupérer en base si tu veux)
-            int tempsAttente = 30;
-            double vitesseMoyenne = 40;
+            // 3. Paramètres
+            double vitesseMoyenne = parametreDao.getVitesseMoyenne();
+            int tempsAttente = parametreDao.getTempsAttente();
 
-            // 4. Regrouper les réservations
-            List<List<Reservation>> groupes = reservationDao.regrouperReservations(reservations, tempsAttente);
+            // Regrouper par vol avec temps d'attente
+            Map<String, List<Reservation>> vols = reservationDao.regrouperParVol(reservations, tempsAttente);
 
             // 5. Planifier
-            Map<Vehicule, Map<String, Object>> planning = planningDao.planifier(groupes, vehicules, vehiculeDao, vitesseMoyenne);
+            Map<String, Object> resultat = planningDao.planifier(vols, vehicules, vitesseMoyenne);
 
-            // 6. Affichage
+            List<Map<String, Object>> trajets = (List<Map<String, Object>>) resultat.get("trajets");
+            List<Reservation> nonAssignees = (List<Reservation>) resultat.get("nonAssignees");
+
+            // 6. Affichage des trajets
             int i = 1;
-            for (Map.Entry<Vehicule, Map<String, Object>> entry : planning.entrySet()) {
-                Map<String, Object> info = entry.getValue();
-                List<Reservation> groupe = (List<Reservation>) info.get("reservations");
-                double distanceTotale = (double) info.get("distanceTotale");
-                String heureDepart = (String) info.get("heureDepart");
-                String heureRetour = (String) info.get("heureRetour");
+            for (Map<String, Object> trajet : trajets) {
+                Vehicule v = (Vehicule) trajet.get("vehicule");
+                List<Reservation> resa = (List<Reservation>) trajet.get("reservations");
+                double dist = (double) trajet.get("distanceTotale");
+                String depart = (String) trajet.get("heureDepart");
+                String retour = (String) trajet.get("heureRetour");
 
-                System.out.println("Trajet " + i + " : " + entry.getKey());
-                for (Reservation r : groupe) {
-                    System.out.println("  - " + r);
+                int totalPassagers = 0;
+                for (Reservation r : resa) totalPassagers += r.getNbPassager();
+
+                System.out.println("Trajet " + i + " : " + v.getReference()
+                    + " (" + v.getNbrPlace() + " places) | " + totalPassagers + " passagers");
+                for (Reservation r : resa) {
+                    System.out.println("  - [" + r.getNbPassager() + " pass.] " + r.getNomLieu() + " | " + r);
                 }
-                System.out.println("  Distance totale : " + distanceTotale + " km");
-                System.out.println("  Heure départ : " + heureDepart);
-                System.out.println("  Heure retour : " + heureRetour);
+                System.out.println("  Distance : " + dist + " km");
+                System.out.println("  Départ : " + depart + " | Retour : " + retour);
+                System.out.println();
                 i++;
             }
 
-            // 7. Afficher les réservations non assignées
-            // On récupère tous les IDs de réservations assignées
-            Set<Integer> reservationsAssignees = new HashSet<>();
-            for (Map.Entry<Vehicule, Map<String, Object>> entry : planning.entrySet()) {
-                List<Reservation> groupe = (List<Reservation>) entry.getValue().get("reservations");
-                for (Reservation r : groupe) {
-                    reservationsAssignees.add(r.getId());
-                }
-            }
-            System.out.println("\nRéservations non assignées :");
-            for (Reservation r : reservations) {
-                if (!reservationsAssignees.contains(r.getId())) {
-                    System.out.println("  - " + r);
+            // 7. Réservations non assignées
+            System.out.println("=== Réservations non assignées ===");
+            if (nonAssignees.isEmpty()) {
+                System.out.println("  Aucune !");
+            } else {
+                for (Reservation r : nonAssignees) {
+                    System.out.println("  - [" + r.getNbPassager() + " pass.] " + r);
                 }
             }
 

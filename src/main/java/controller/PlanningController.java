@@ -30,54 +30,34 @@ public class PlanningController {
             ReservationDao reservationDao = new ReservationDao();
             VehiculeDao vehiculeDao = new VehiculeDao();
             PlanningDao planningDao = new PlanningDao();
+            ParametreDao parametreDao = new ParametreDao();
 
-            // 1. Récupérer les réservations du jour
+            // 1. Réservations du jour
             List<Reservation> reservationsJour = reservationDao.findByDate(date);
 
-            // 2. Récupérer tous les véhicules
+            // 2. Véhicules
             List<Vehicule> vehicules = vehiculeDao.findAll();
 
-            // 3. Récupérer les paramètres (exemple en dur, sinon ParametreDao)
-            ParametreDao parametreDao = new ParametreDao();
-            int tempsAttente = parametreDao.getTempsAttente();
+            // 3. Paramètres
             double vitesseMoyenne = parametreDao.getVitesseMoyenne();
+            int tempsAttente = parametreDao.getTempsAttente();
 
-            // 4. Regrouper les réservations
-            List<List<Reservation>> groupes = reservationDao.regrouperReservations(reservationsJour, tempsAttente);
+            // 4. Regrouper par vol avec temps d'attente
+            Map<String, List<Reservation>> vols = reservationDao.regrouperParVol(reservationsJour, tempsAttente);
 
             // 5. Planifier
-            Map<Vehicule, Map<String, Object>> planning = planningDao.planifier(groupes, vehicules, vehiculeDao, vitesseMoyenne);
+            Map<String, Object> resultat = planningDao.planifier(vols, vehicules, vitesseMoyenne);
 
-            // 6. Construire les deux tableaux
-            List<Map<String, Object>> vehiculesPlanifies = new ArrayList<>();
-            Set<Integer> reservationsAssignees = new HashSet<>();
-            for (Map.Entry<Vehicule, Map<String, Object>> entry : planning.entrySet()) {
-                Map<String, Object> info = entry.getValue();
-                List<Reservation> groupe = (List<Reservation>) info.get("reservations");
-                for (Reservation r : groupe) {
-                    reservationsAssignees.add(r.getId());
-                }
-                Map<String, Object> ligne = new HashMap<>();
-                ligne.put("vehicule", entry.getKey());
-                ligne.put("reservations", groupe);
-                ligne.put("heureDepart", info.get("heureDepart"));
-                ligne.put("heureRetour", info.get("heureRetour"));
-                vehiculesPlanifies.add(ligne);
-            }
+            // 6. Extraire les résultats
+            List<Map<String, Object>> trajets = (List<Map<String, Object>>) resultat.get("trajets");
+            List<Reservation> nonAssignees = (List<Reservation>) resultat.get("nonAssignees");
 
-            // 7. Réservations non assignées
-            List<Reservation> nonAssignees = new ArrayList<>();
-            for (Reservation r : reservationsJour) {
-                if (!reservationsAssignees.contains(r.getId())) {
-                    nonAssignees.add(r);
-                }
-            }
-
-            mv.addData("vehiculesPlanifies", vehiculesPlanifies);
+            mv.addData("vehiculesPlanifies", trajets);
             mv.addData("reservationsNonAssignees", nonAssignees);
 
         } catch (Exception e) {
             mv.addData("error", "Erreur lors de la planification : " + e.getMessage());
+            e.printStackTrace();
         }
 
         return mv;
