@@ -1,15 +1,15 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set "work_dir=D:\GitHub\back-office"
+set "work_dir=C:\Users\NyEja\Documents\itu\mrNaina\voiture\back-office"
 set "lib=%work_dir%\lib"
 set "src=%work_dir%\src"
 set "webapp=%work_dir%\src\main\webapp"
 set "web_xml=%work_dir%\src\main\webapp\WEB-INF\web.xml"
-set "temp=D:\GitHub\back-office\build"
+set "temp=C:\Users\NyEja\Documents\itu\mrNaina\voiture\back-office\build"
 
 set "war_name=voiture"
-set "web_apps=C:\Program Files\Tomcat\apache-tomcat-11.0.13\webapps"
+set "web_apps=C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps"
 
 @REM --- CREATE TEMP FOLDER ---
 echo * Deleting temp folder...
