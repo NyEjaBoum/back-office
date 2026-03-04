@@ -30,6 +30,32 @@
             <% } %>
 
             <%
+                String dateFiltre = (String) request.getAttribute("dateFiltre");
+                String triFiltre = (String) request.getAttribute("triFiltre");
+                if (dateFiltre == null) dateFiltre = "";
+                if (triFiltre == null) triFiltre = "";
+            %>
+            <form method="get" action="${pageContext.request.contextPath}/reservations" style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap">
+                <div>
+                    <label class="text-muted" style="display:block;font-size:0.85em;margin-bottom:4px">Date</label>
+                    <input type="date" name="date" value="<%= dateFiltre %>" class="form-control">
+                </div>
+                <div>
+                    <label class="text-muted" style="display:block;font-size:0.85em;margin-bottom:4px">Trier par</label>
+                    <select name="tri" class="form-control">
+                        <option value="" <%= "".equals(triFiltre) ? "selected" : "" %>>Date (recent d'abord)</option>
+                        <option value="dateAsc" <%= "dateAsc".equals(triFiltre) ? "selected" : "" %>>Date (ancien d'abord)</option>
+                        <option value="nom" <%= "nom".equals(triFiltre) ? "selected" : "" %>>Nom du lieu (A-Z)</option>
+                        <option value="passagers" <%= "passagers".equals(triFiltre) ? "selected" : "" %>>Passagers (decroissant)</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button type="submit" class="btn btn-secondary">Filtrer</button>
+                    <a href="${pageContext.request.contextPath}/reservations" class="btn btn-secondary">Reinitialiser</a>
+                </div>
+            </form>
+
+            <%
                 List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
                 SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 
