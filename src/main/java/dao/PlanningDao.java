@@ -22,44 +22,72 @@ public class PlanningDao {
     /**
      * Calcule la distance totale (greedy nearest neighbor) pour une liste de réservations.
      * Trajet : Aeroport -> lieux -> Aeroport
+     * Retourne une Map avec "distanceTotale" (Double) et "ordreTrajet" (List<String> des noms de lieux).
+     * En cas d'égalité de distance, le lieu alphabétiquement le plus petit est visité en premier.
      */
-    public double calculerDistanceGreedy(List<Reservation> reservations) throws Exception {
+    public Map<String, Object> calculerDistanceGreedy(List<Reservation> reservations) throws Exception {
+        Map<String, Object> resultat = new HashMap<>();
         int idAeroport = getIdAeroport();
         List<Integer> lieux = extraireLieuxUniques(reservations);
-        if (lieux.isEmpty()) return 0.0;
+        if (lieux.isEmpty()) {
+            resultat.put("distanceTotale", 0.0);
+            resultat.put("ordreTrajet", new ArrayList<String>());
+            return resultat;
+        }
+
+        // Map idLieu -> nomLieu pour le tri alphabétique en cas d'égalité de distance
+        Map<Integer, String> nomParLieu = new HashMap<>();
+        for (Reservation r : reservations) {
+            if (!nomParLieu.containsKey(r.getIdLieu()) && r.getNomLieu() != null) {
+                nomParLieu.put(r.getIdLieu(), r.getNomLieu());
+            }
+        }
 
         double total = 0.0;
         List<Integer> nonVisites = new ArrayList<>(lieux);
+        List<String> ordreTrajet = new ArrayList<>();
 
-        // Aeroport -> lieu le plus proche
+        // Aeroport -> lieu le plus proche (alphabétique si même distance)
         Integer current = null;
         double minDist = Double.MAX_VALUE;
+        String nomMin = null;
         for (Integer l : nonVisites) {
             double dist = distanceDao.getDistance(idAeroport, l);
-            if (dist >= 0 && dist < minDist) {
+            String nom = nomParLieu.getOrDefault(l, "");
+            if (dist >= 0 && (dist < minDist || (dist == minDist && nom.compareTo(nomMin) < 0))) {
                 minDist = dist;
                 current = l;
+                nomMin = nom;
             }
         }
-        if (current == null) return 0.0;
+        if (current == null) {
+            resultat.put("distanceTotale", 0.0);
+            resultat.put("ordreTrajet", new ArrayList<String>());
+            return resultat;
+        }
         total += minDist;
+        ordreTrajet.add(nomParLieu.getOrDefault(current, "Lieu #" + current));
         nonVisites.remove(current);
 
-        // Greedy : lieu courant -> lieu le plus proche non visité
+        // Greedy : lieu courant -> lieu le plus proche non visité (alphabétique si même distance)
         while (!nonVisites.isEmpty()) {
             Integer next = null;
             minDist = Double.MAX_VALUE;
+            nomMin = null;
             for (Integer l : nonVisites) {
                 double dist;
                 try { dist = distanceDao.getDistance(current, l); }
                 catch (Exception e) { dist = Double.MAX_VALUE; }
-                if (dist >= 0 && dist < minDist) {
+                String nom = nomParLieu.getOrDefault(l, "");
+                if (dist >= 0 && (dist < minDist || (dist == minDist && nomMin != null && nom.compareTo(nomMin) < 0))) {
                     minDist = dist;
                     next = l;
+                    nomMin = nom;
                 }
             }
             if (next == null) break;
             total += minDist;
+            ordreTrajet.add(nomParLieu.getOrDefault(next, "Lieu #" + next));
             current = next;
             nonVisites.remove(next);
         }
@@ -68,7 +96,9 @@ public class PlanningDao {
         double retour = distanceDao.getDistance(current, idAeroport);
         if (retour >= 0) total += retour;
 
-        return total;
+        resultat.put("distanceTotale", total);
+        resultat.put("ordreTrajet", ordreTrajet);
+        return resultat;
     }
 
     /** Extrait les lieux uniques d'une liste de réservations */
@@ -161,8 +191,14 @@ public class PlanningDao {
                 Vehicule v = trouverVehiculeParId(vehicules, vehiculeId);
 
                 double distanceTotale = 0.0;
-                try { distanceTotale = calculerDistanceGreedy(reservationsAssignees); }
-                catch (Exception e) { distanceTotale = 0.0; }
+                List<String> ordreTrajet = new ArrayList<>();
+                try {
+                    Map<String, Object> greedyResult = calculerDistanceGreedy(reservationsAssignees);
+                    distanceTotale = (Double) greedyResult.get("distanceTotale");
+                    ordreTrajet = (List<String>) greedyResult.get("ordreTrajet");
+                } catch (Exception e) {
+                    distanceTotale = 0.0;
+                }
 
                 long dureeMs = (long) ((distanceTotale / vitesseMoyenne) * 3600 * 1000);
                 String heureRetour = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
@@ -175,6 +211,7 @@ public class PlanningDao {
                 trajet.put("vehicule", v);
                 trajet.put("reservations", reservationsAssignees);
                 trajet.put("distanceTotale", distanceTotale);
+                trajet.put("ordreTrajet", ordreTrajet);
                 trajet.put("heureDepart", heureVol);
                 trajet.put("heureRetour", heureRetour);
                 trajets.add(trajet);

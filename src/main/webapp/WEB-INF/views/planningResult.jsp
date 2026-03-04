@@ -44,6 +44,8 @@
                     <tr>
                         <th>Vehicule</th>
                         <th>Reservations assignees</th>
+                        <th>Ordre du trajet</th>
+                        <th>Distance</th>
                         <th>Depart</th>
                         <th>Retour</th>
                     </tr>
@@ -70,6 +72,19 @@
                                 </div>
                             <% } %>
                         </td>
+                        <td>
+                            <% List<String> ordreTrajet = (List<String>) ligne.get("ordreTrajet");
+                               if (ordreTrajet != null && !ordreTrajet.isEmpty()) { %>
+                                Aeroport
+                                <% for (String nomLieu : ordreTrajet) { %>
+                                    &rarr; <span class="badge badge-blue"><%= nomLieu %></span>
+                                <% } %>
+                                &rarr; Aeroport
+                            <% } else { %>
+                                <span class="text-muted">-</span>
+                            <% } %>
+                        </td>
+                        <td><%= String.format("%.1f", ligne.get("distanceTotale")) %> km</td>
                         <td><%= ligne.get("heureDepart") %></td>
                         <td><%= ligne.get("heureRetour") %></td>
                     </tr>

@@ -2,14 +2,17 @@
 
 ## 1. Tri alphabétique des hôtels dans le trajet (priorité si même distance)
 
-### Objectif
+### Objectif (Tri alphabétique)
+
 Dans l'algorithme Greedy, quand deux lieux ont la **même distance**, le lieu dont
 le **nom est alphabétiquement le plus petit** doit être visité en premier.
 
 ### Fichier à modifier
+
 `src/main/java/dao/PlanningDao.java`
 
 ### Changement dans `calculerDistanceGreedy()`
+
 - [ ] Lors du choix du prochain lieu (nearest neighbor), si deux lieux ont la même distance :
   - Comparer les noms (`nomLieu`) alphabétiquement
   - Prendre celui qui vient en premier dans l'ordre alphabétique
@@ -31,12 +34,14 @@ if (dist < minDist || (dist == minDist && nomLieu.compareTo(nomLieuMin) < 0)) {
 
 ## 2. Affichage de la distance du trajet dans la page de planification
 
-### Objectif
+### Objectif (Affichage distance)
+
 Afficher la distance totale du trajet (en km) dans le tableau des véhicules planifiés.
 
 ### Fichiers à modifier
 
 **`src/main/webapp/WEB-INF/views/planningResult.jsp`**
+
 - [ ] Ajouter une colonne `Distance` dans le tableau des véhicules planifiés :
 
 ```jsp
@@ -46,18 +51,21 @@ Afficher la distance totale du trajet (en km) dans le tableau des véhicules pla
 ```
 
 **`src/main/java/dao/PlanningDao.java`**
+
 - [ ] Vérifier que `distanceTotale` est bien dans la Map retournée (déjà fait ✅)
 
 ---
 
 ## 3. Filtre par date dans la liste des réservations
 
-### Objectif
+### Objectif (Filtre par date)
+
 Permettre à l'utilisateur de filtrer les réservations par date dans la page liste.
 
-### Fichiers à modifier
+### Fichiers à modifier (Filtre par date)
 
 **`src/main/webapp/WEB-INF/views/reservationList.jsp`**
+
 - [ ] Ajouter un formulaire de filtre en haut de la page :
 
 ```jsp
@@ -69,6 +77,7 @@ Permettre à l'utilisateur de filtrer les réservations par date dans la page li
 ```
 
 **`src/main/java/controller/ReservationController.java`**
+
 - [ ] Modifier `listReservationsView()` pour accepter le paramètre `date` :
 
 ```java
@@ -87,17 +96,18 @@ public ModelView listReservationsView(HttpServletRequest request) {
 ```
 
 **`src/main/java/dao/ReservationDao.java`**
+
 - [ ] `findByDate()` existe déjà ✅, pas de modification nécessaire
 
 ---
 
 ## Résumé des fichiers à modifier (DEV 3657)
 
-| Fichier | Action |
-|---------|--------|
-| `src/main/java/dao/PlanningDao.java` | Tri alphabétique si même distance dans greedy |
-| `src/main/webapp/WEB-INF/views/planningResult.jsp` | Ajouter colonne Distance |
-| `src/main/webapp/WEB-INF/views/reservationList.jsp` | Ajouter formulaire filtre par date |
+| Fichier                                               |                                               Action |
+|-------------------------------------------------------|------------------------------------------------------|
+| `src/main/java/dao/PlanningDao.java`                  | Tri alphabétique si même distance dans greedy        |
+| `src/main/webapp/WEB-INF/views/planningResult.jsp`    | Ajouter colonne Distance                             |
+| `src/main/webapp/WEB-INF/views/reservationList.jsp`   | Ajouter formulaire filtre par date                   |
 | `src/main/java/controller/ReservationController.java` | Gérer paramètre `date` dans `listReservationsView()` |
 
 ---
