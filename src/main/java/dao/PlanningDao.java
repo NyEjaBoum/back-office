@@ -61,7 +61,6 @@ public class PlanningDao {
      */
     public Map<String, Object> calculerDistanceGreedy(List<Reservation> reservations) throws Exception {
         Map<String, Object> resultat = new HashMap<>();
-        int idAeroport = getIdAeroport();
         List<Integer> lieux = extraireLieuxUniques(reservations);
         if (lieux.isEmpty()) {
             resultat.put("distanceTotale", 0.0);
