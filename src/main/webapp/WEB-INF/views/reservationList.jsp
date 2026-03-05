@@ -29,23 +29,21 @@
                 <div class="alert alert-error"><%= request.getAttribute("error") %></div>
             <% } %>
 
-            <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap">
-                <div>
-                    <label class="text-muted" style="display:block;font-size:0.85em;margin-bottom:4px">Filtrer par date</label>
-                    <input type="date" id="dateFiltre" class="form-control" onchange="filtrerEtTrier()">
+            <div class="filter-bar">
+                <div class="form-group" style="margin-bottom:0">
+                    <label>Date</label>
+                    <input type="date" id="dateFiltre" onchange="filtrerEtTrier()">
                 </div>
-                <div>
-                    <label class="text-muted" style="display:block;font-size:0.85em;margin-bottom:4px">Trier par</label>
-                    <select id="triFiltre" class="form-control" onchange="filtrerEtTrier()">
+                <div class="form-group" style="margin-bottom:0">
+                    <label>Trier par</label>
+                    <select id="triFiltre" onchange="filtrerEtTrier()">
                         <option value="dateDesc">Date (recent d'abord)</option>
                         <option value="dateAsc">Date (ancien d'abord)</option>
                         <option value="nom">Nom du lieu (A-Z)</option>
                         <option value="passagers">Passagers (decroissant)</option>
                     </select>
                 </div>
-                <div>
-                    <button type="button" class="btn btn-secondary" onclick="reinitialiser()">Reinitialiser</button>
-                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="reinitialiser()" style="align-self:flex-end">Reinitialiser</button>
             </div>
 
             <%
