@@ -29,31 +29,22 @@
                 <div class="alert alert-error"><%= request.getAttribute("error") %></div>
             <% } %>
 
-            <%
-                String dateFiltre = (String) request.getAttribute("dateFiltre");
-                String triFiltre = (String) request.getAttribute("triFiltre");
-                if (dateFiltre == null) dateFiltre = "";
-                if (triFiltre == null) triFiltre = "";
-            %>
-            <form method="get" action="${pageContext.request.contextPath}/reservations" style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap">
-                <div>
-                    <label class="text-muted" style="display:block;font-size:0.85em;margin-bottom:4px">Date</label>
-                    <input type="date" name="date" value="<%= dateFiltre %>" class="form-control">
+            <div class="filter-bar">
+                <div class="form-group" style="margin-bottom:0">
+                    <label>Date</label>
+                    <input type="date" id="dateFiltre" onchange="filtrerEtTrier()">
                 </div>
-                <div>
-                    <label class="text-muted" style="display:block;font-size:0.85em;margin-bottom:4px">Trier par</label>
-                    <select name="tri" class="form-control">
-                        <option value="" <%= "".equals(triFiltre) ? "selected" : "" %>>Date (recent d'abord)</option>
-                        <option value="dateAsc" <%= "dateAsc".equals(triFiltre) ? "selected" : "" %>>Date (ancien d'abord)</option>
-                        <option value="nom" <%= "nom".equals(triFiltre) ? "selected" : "" %>>Nom du lieu (A-Z)</option>
-                        <option value="passagers" <%= "passagers".equals(triFiltre) ? "selected" : "" %>>Passagers (decroissant)</option>
+                <div class="form-group" style="margin-bottom:0">
+                    <label>Trier par</label>
+                    <select id="triFiltre" onchange="filtrerEtTrier()">
+                        <option value="dateDesc">Date (recent d'abord)</option>
+                        <option value="dateAsc">Date (ancien d'abord)</option>
+                        <option value="nom">Nom du lieu (A-Z)</option>
+                        <option value="passagers">Passagers (decroissant)</option>
                     </select>
                 </div>
-                <div style="display:flex;gap:8px">
-                    <button type="submit" class="btn btn-secondary">Filtrer</button>
-                    <a href="${pageContext.request.contextPath}/reservations" class="btn btn-secondary">Reinitialiser</a>
-                </div>
-            </form>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="reinitialiser()" style="align-self:flex-end">Reinitialiser</button>
+            </div>
 
             <%
                 List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
@@ -63,7 +54,7 @@
             %>
                 <div class="empty-state">Aucune reservation trouvee.</div>
             <% } else { %>
-            <table>
+            <table id="reservationTable">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -75,7 +66,9 @@
                 </thead>
                 <tbody>
                 <% for (Reservation r : reservations) { %>
-                    <tr>
+                    <tr data-date="<%= r.getDateArrivee() %>"
+                        data-lieu="<%= r.getNomLieu() %>"
+                        data-passagers="<%= r.getNbPassager() %>">
                         <td class="text-muted">#<%= r.getId() %></td>
                         <td><span class="badge badge-purple"><%= r.getIdClient() %></span></td>
                         <td><%= r.getNbPassager() %></td>
@@ -88,5 +81,53 @@
             <% } %>
         </div>
     </div>
+
+    <script>
+    function filtrerEtTrier() {
+        var table = document.getElementById('reservationTable');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+
+        var dateFiltre = document.getElementById('dateFiltre').value;
+        var tri = document.getElementById('triFiltre').value;
+
+        // Filtrer par date
+        rows.forEach(function(row) {
+            if (dateFiltre) {
+                var rowDate = row.getAttribute('data-date').substring(0, 10);
+                row.style.display = (rowDate === dateFiltre) ? '' : 'none';
+            } else {
+                row.style.display = '';
+            }
+        });
+
+        // Trier
+        var visibleRows = rows.filter(function(r) { return r.style.display !== 'none'; });
+        visibleRows.sort(function(a, b) {
+            if (tri === 'nom') {
+                return a.getAttribute('data-lieu').localeCompare(b.getAttribute('data-lieu'));
+            } else if (tri === 'passagers') {
+                return parseInt(b.getAttribute('data-passagers')) - parseInt(a.getAttribute('data-passagers'));
+            } else if (tri === 'dateAsc') {
+                return a.getAttribute('data-date').localeCompare(b.getAttribute('data-date'));
+            } else {
+                // dateDesc (defaut)
+                return b.getAttribute('data-date').localeCompare(a.getAttribute('data-date'));
+            }
+        });
+
+        // Reordonner dans le DOM
+        var hiddenRows = rows.filter(function(r) { return r.style.display === 'none'; });
+        visibleRows.forEach(function(row) { tbody.appendChild(row); });
+        hiddenRows.forEach(function(row) { tbody.appendChild(row); });
+    }
+
+    function reinitialiser() {
+        document.getElementById('dateFiltre').value = '';
+        document.getElementById('triFiltre').value = 'dateDesc';
+        filtrerEtTrier();
+    }
+    </script>
 </body>
 </html>

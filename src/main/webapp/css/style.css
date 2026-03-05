@@ -294,6 +294,28 @@ tr:hover td {
     display: inline;
 }
 
+/* ===== Filter bar ===== */
+.filter-bar {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    padding: 16px 20px;
+    background: #f8f9fb;
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.filter-bar .form-group {
+    flex: 0 0 auto;
+}
+
+.filter-bar .form-group input,
+.filter-bar .form-group select {
+    width: auto;
+    min-width: 180px;
+}
+
 /* ===== Planning specific ===== */
 .reservation-item {
     padding: 4px 0;

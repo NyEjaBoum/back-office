@@ -61,7 +61,6 @@ public class PlanningDao {
      */
     public Map<String, Object> calculerDistanceGreedy(List<Reservation> reservations) throws Exception {
         Map<String, Object> resultat = new HashMap<>();
-        int idAeroport = getIdAeroport();
         List<Integer> lieux = extraireLieuxUniques(reservations);
         if (lieux.isEmpty()) {
             resultat.put("distanceTotale", 0.0);
@@ -91,7 +90,7 @@ public class PlanningDao {
         for (Integer l : nonVisites) {
             double dist = distanceDao.getDistance(idAeroport, l);
             String nom = nomParLieu.getOrDefault(l, "");
-            if (dist >= 0 && (dist < minDist || (dist == minDist && nom.compareTo(nomMin) < 0))) {
+            if (dist >= 0 && (dist < minDist || (dist == minDist && nomMin != null && nom.compareTo(nomMin) < 0))) {
                 minDist = dist;
                 current = l;
                 nomMin = nom;
@@ -234,6 +233,8 @@ public class PlanningDao {
                     distanceTotale = (Double) greedyResult.get("distanceTotale");
                     ordreTrajet = (List<String>) greedyResult.get("ordreTrajet");
                 } catch (Exception e) {
+                    System.err.println("[PLANNING] Erreur calcul distance: " + e.getMessage());
+                    e.printStackTrace();
                     distanceTotale = 0.0;
                 }
 
