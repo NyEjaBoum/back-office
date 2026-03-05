@@ -121,15 +121,67 @@ public class ReservationController {
         }
     }
 
-    // Afficher la liste des réservations (page Back Office)
+    // Afficher la liste des réservations (page Back Office) avec filtres
     @Get("/reservations")
-    public ModelView listReservationsView() {
+    public ModelView listReservationsView(HttpServletRequest request) {
         ModelView mv = new ModelView("/WEB-INF/views/reservationList.jsp");
 
         try {
             ReservationDao reservationDao = new ReservationDao();
-            List<Reservation> reservations = reservationDao.findAll();
+            String date = request.getParameter("date");
+            String tri = request.getParameter("tri");
+
+            List<Reservation> reservations;
+            if (date != null && !date.isEmpty()) {
+                reservations = reservationDao.findByDate(date);
+            } else {
+                reservations = reservationDao.findAll();
+            }
+
+            // Tri selon le paramètre choisi
+            if ("nom".equals(tri)) {
+                // Tri alphabétique par nom de lieu
+                for (int i = 0; i < reservations.size() - 1; i++) {
+                    for (int j = 0; j < reservations.size() - i - 1; j++) {
+                        String nom1 = reservations.get(j).getNomLieu() != null ? reservations.get(j).getNomLieu() : "";
+                        String nom2 = reservations.get(j + 1).getNomLieu() != null ? reservations.get(j + 1).getNomLieu() : "";
+                        if (nom1.compareTo(nom2) > 0) {
+                            Reservation tmp = reservations.get(j);
+                            reservations.set(j, reservations.get(j + 1));
+                            reservations.set(j + 1, tmp);
+                        }
+                    }
+                }
+            } else if ("dateAsc".equals(tri)) {
+                // Tri par date croissante
+                for (int i = 0; i < reservations.size() - 1; i++) {
+                    for (int j = 0; j < reservations.size() - i - 1; j++) {
+                        String d1 = reservations.get(j).getDateArrivee() != null ? reservations.get(j).getDateArrivee() : "";
+                        String d2 = reservations.get(j + 1).getDateArrivee() != null ? reservations.get(j + 1).getDateArrivee() : "";
+                        if (d1.compareTo(d2) > 0) {
+                            Reservation tmp = reservations.get(j);
+                            reservations.set(j, reservations.get(j + 1));
+                            reservations.set(j + 1, tmp);
+                        }
+                    }
+                }
+            } else if ("passagers".equals(tri)) {
+                // Tri par nombre de passagers décroissant
+                for (int i = 0; i < reservations.size() - 1; i++) {
+                    for (int j = 0; j < reservations.size() - i - 1; j++) {
+                        if (reservations.get(j).getNbPassager() < reservations.get(j + 1).getNbPassager()) {
+                            Reservation tmp = reservations.get(j);
+                            reservations.set(j, reservations.get(j + 1));
+                            reservations.set(j + 1, tmp);
+                        }
+                    }
+                }
+            }
+            // Par défaut (tri == null ou "dateDesc") : findAll retourne déjà ORDER BY dateArrivee DESC
+
             mv.addData("reservations", reservations);
+            mv.addData("dateFiltre", date);
+            mv.addData("triFiltre", tri);
         } catch (Exception e) {
             mv.addData("error", "Erreur lors du chargement des réservations: " + e.getMessage());
             mv.addData("reservations", new ArrayList<Reservation>());
