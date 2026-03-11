@@ -11,7 +11,7 @@ import java.util.*;
 public class Main {
     public static void main(String[] args) {
         try {
-            String date = "2026-03-01";
+            String date = "2026-03-10";
 
             ReservationDao reservationDao = new ReservationDao();
             VehiculeDao vehiculeDao = new VehiculeDao();
@@ -25,14 +25,13 @@ public class Main {
             List<Vehicule> vehicules = vehiculeDao.findAll();
 
             // 3. Paramètres
-            double vitesseMoyenne = parametreDao.getVitesseMoyenne();
             int tempsAttente = parametreDao.getTempsAttente();
 
             // Regrouper par vol avec temps d'attente
             Map<String, List<Reservation>> vols = reservationDao.regrouperParVol(reservations, tempsAttente);
 
             // 5. Planifier
-            Map<String, Object> resultat = planningDao.planifier(vols, vehicules, vitesseMoyenne);
+            Map<String, Object> resultat = planningDao.planifier(vols, vehicules);
 
             List<Map<String, Object>> trajets = (List<Map<String, Object>>) resultat.get("trajets");
             List<Reservation> nonAssignees = (List<Reservation>) resultat.get("nonAssignees");

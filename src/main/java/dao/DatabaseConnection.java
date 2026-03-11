@@ -6,7 +6,7 @@ import java.sql.SQLException;
 
 public class DatabaseConnection {
     
-    private static final String URL = "jdbc:postgresql://localhost:5432/voiture_reservation";
+    private static final String URL = "jdbc:postgresql://localhost:5432/voiture_reservation_sprint5";
     private static final String USER = "app_dev";
     private static final String PASSWORD = "dev_pwd";
     
