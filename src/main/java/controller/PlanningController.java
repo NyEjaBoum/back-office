@@ -39,14 +39,13 @@ public class PlanningController {
             List<Vehicule> vehicules = vehiculeDao.findAll();
 
             // 3. Paramètres
-            double vitesseMoyenne = parametreDao.getVitesseMoyenne();
             int tempsAttente = parametreDao.getTempsAttente();
 
             // 4. Regrouper par vol avec temps d'attente
             Map<String, List<Reservation>> vols = reservationDao.regrouperParVol(reservationsJour, tempsAttente);
 
             // 5. Planifier
-            Map<String, Object> resultat = planningDao.planifier(vols, vehicules, vitesseMoyenne);
+            Map<String, Object> resultat = planningDao.planifier(vols, vehicules);
 
             // 6. Extraire les résultats
             List<Map<String, Object>> trajets = (List<Map<String, Object>>) resultat.get("trajets");

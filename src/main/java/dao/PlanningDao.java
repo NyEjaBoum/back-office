@@ -9,6 +9,7 @@ public class PlanningDao {
 
     private DistanceDao distanceDao = new DistanceDao();
     private LieuDao lieuDao = new LieuDao();
+    private ParametreDao parametreDao = new ParametreDao();
 
     /**
      * Retourne la liste de tous les lieux de type AEROPORT
@@ -165,8 +166,9 @@ public class PlanningDao {
      */
     public Map<String, Object> planifier(
             Map<String, List<Reservation>> vols,
-            List<Vehicule> vehicules,
-            double vitesseMoyenne) {
+            List<Vehicule> vehicules) throws Exception {
+
+        double vitesseMoyenne = parametreDao.getVitesseMoyenne();
 
         List<Map<String, Object>> trajets = new ArrayList<>();
         List<Reservation> nonAssignees = new ArrayList<>();
@@ -177,89 +179,132 @@ public class PlanningDao {
         for (Map.Entry<String, List<Reservation>> entry : vols.entrySet()) {
             String heureVol = entry.getKey();
             List<Reservation> reservationsVol = entry.getValue();
-            // Réservations déjà triées par nbPassager décroissant (fait dans regrouperParVol)
-
-            // Pour ce vol : vehiculeId -> places restantes
-            Map<Integer, Integer> placesRestantes = new HashMap<>();
-            // Pour ce vol : vehiculeId -> liste des réservations assignées
+            Map<Integer, Integer> placesRestantes = initialiserPlacesRestantes(vehicules, vehiculeHeureRetour, heureVol);
             Map<Integer, List<Reservation>> assignationsVol = new LinkedHashMap<>();
 
-            // Initialiser les places restantes pour les véhicules DISPONIBLES à cette heure
-            for (Vehicule v : vehicules) {
-                String heureRetourV = vehiculeHeureRetour.get(v.getId());
-                boolean disponible = (heureRetourV == null || heureRetourV.compareTo(heureVol) <= 0);
-                if (disponible) {
-                    placesRestantes.put(v.getId(), v.getNbrPlace());
-                }
-            }
+            assignerReservationsVol(
+                reservationsVol,
+                assignationsVol,
+                placesRestantes,
+                vehicules,
+                nonAssignees
+            );
 
-            // Traiter chaque réservation du vol (du plus grand au plus petit groupe)
-            for (Reservation r : reservationsVol) {
-                int nbPassagers = r.getNbPassager();
-                Integer vehiculeChoisiId = null;
-
-                // Étape 1 : chercher un véhicule DÉJÀ utilisé dans ce vol avec assez de place
-                // (pour regrouper au maximum dans les véhicules déjà ouverts)
-                vehiculeChoisiId = chercherVehiculeDejaUtilise(assignationsVol, placesRestantes, nbPassagers, vehicules);
-
-                // Étape 2 : si aucun véhicule déjà utilisé ne convient, prendre un nouveau véhicule
-                if (vehiculeChoisiId == null) {
-                    vehiculeChoisiId = chercherNouveauVehicule(assignationsVol, placesRestantes, nbPassagers, vehicules);
-                }
-
-                if (vehiculeChoisiId != null) {
-                    // Assigner
-                    if (!assignationsVol.containsKey(vehiculeChoisiId)) {
-                        assignationsVol.put(vehiculeChoisiId, new ArrayList<>());
-                    }
-                    assignationsVol.get(vehiculeChoisiId).add(r);
-                    placesRestantes.put(vehiculeChoisiId, placesRestantes.get(vehiculeChoisiId) - nbPassagers);
-                } else {
-                    nonAssignees.add(r);
-                }
-            }
-
-            // Créer les trajets pour ce vol
-            for (Map.Entry<Integer, List<Reservation>> assignation : assignationsVol.entrySet()) {
-                int vehiculeId = assignation.getKey();
-                List<Reservation> reservationsAssignees = assignation.getValue();
-
-                Vehicule v = trouverVehiculeParId(vehicules, vehiculeId);
-
-                double distanceTotale = 0.0;
-                List<String> ordreTrajet = new ArrayList<>();
-                try {
-                    Map<String, Object> greedyResult = calculerDistanceGreedy(reservationsAssignees);
-                    distanceTotale = (Double) greedyResult.get("distanceTotale");
-                    ordreTrajet = (List<String>) greedyResult.get("ordreTrajet");
-                } catch (Exception e) {
-                    System.err.println("[PLANNING] Erreur calcul distance: " + e.getMessage());
-                    e.printStackTrace();
-                    distanceTotale = 0.0;
-                }
-
-                long dureeMs = (long) ((distanceTotale / vitesseMoyenne) * 3600 * 1000);
-                String heureRetour = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                    .format(new java.util.Date(java.sql.Timestamp.valueOf(heureVol).getTime() + dureeMs));
-
-                // Mettre à jour l'heure de retour du véhicule
-                vehiculeHeureRetour.put(vehiculeId, heureRetour);
-
-                Map<String, Object> trajet = new LinkedHashMap<>();
-                trajet.put("vehicule", v);
-                trajet.put("reservations", reservationsAssignees);
-                trajet.put("distanceTotale", distanceTotale);
-                trajet.put("ordreTrajet", ordreTrajet);
-                trajet.put("heureDepart", heureVol);
-                trajet.put("heureRetour", heureRetour);
-                trajets.add(trajet);
-            }
+            creerTrajetsPourVol(
+                heureVol,
+                assignationsVol,
+                vehicules,
+                vitesseMoyenne,
+                vehiculeHeureRetour,
+                trajets
+            );
         }
 
         Map<String, Object> resultat = new HashMap<>();
         resultat.put("trajets", trajets);
         resultat.put("nonAssignees", nonAssignees);
         return resultat;
+    }
+
+    private Map<Integer, Integer> initialiserPlacesRestantes(List<Vehicule> vehicules,Map<Integer, String> vehiculeHeureRetour,String heureVol) {
+        Map<Integer, Integer> placesRestantes = new HashMap<>();
+        for (Vehicule v : vehicules) {
+            String heureRetourV = vehiculeHeureRetour.get(v.getId());
+            boolean disponible = (heureRetourV == null || heureRetourV.compareTo(heureVol) <= 0);
+            if (disponible) {
+                placesRestantes.put(v.getId(), v.getNbrPlace());
+            }
+        }
+        return placesRestantes;
+    }
+
+    private void assignerReservationsVol(
+            List<Reservation> reservationsVol,
+            Map<Integer, List<Reservation>> assignationsVol,
+            Map<Integer, Integer> placesRestantes,
+            List<Vehicule> vehicules,
+            List<Reservation> nonAssignees) {
+        for (Reservation r : reservationsVol) {
+            int nbPassagers = r.getNbPassager();
+            Integer vehiculeChoisiId = chercherVehiculeDejaUtilise(assignationsVol, placesRestantes, nbPassagers, vehicules);
+
+            if (vehiculeChoisiId == null) {
+                vehiculeChoisiId = chercherNouveauVehicule(assignationsVol, placesRestantes, nbPassagers, vehicules);
+            }
+
+            if (vehiculeChoisiId != null) {
+                assignerReservation(
+                    assignationsVol,
+                    placesRestantes,
+                    vehiculeChoisiId,
+                    r,
+                    nbPassagers
+                );
+            } else {
+                nonAssignees.add(r);
+            }
+        }
+    }
+
+    private void assignerReservation(
+            Map<Integer, List<Reservation>> assignationsVol,
+            Map<Integer, Integer> placesRestantes,
+            Integer vehiculeChoisiId,
+            Reservation reservation,
+            int nbPassagers) {
+        if (!assignationsVol.containsKey(vehiculeChoisiId)) {
+            assignationsVol.put(vehiculeChoisiId, new ArrayList<>());
+        }
+        assignationsVol.get(vehiculeChoisiId).add(reservation);
+        placesRestantes.put(vehiculeChoisiId, placesRestantes.get(vehiculeChoisiId) - nbPassagers);
+    }
+
+    private void creerTrajetsPourVol(String heureVol,Map<Integer, List<Reservation>> assignationsVol,List<Vehicule> vehicules,double vitesseMoyenne,Map<Integer, String> vehiculeHeureRetour,List<Map<String, Object>> trajets) {
+        for (Map.Entry<Integer, List<Reservation>> assignation : assignationsVol.entrySet()) {
+            int vehiculeId = assignation.getKey();
+            List<Reservation> reservationsAssignees = assignation.getValue();
+
+            Vehicule v = trouverVehiculeParId(vehicules, vehiculeId);
+            Map<String, Object> infosTrajet = calculerInfosTrajet(reservationsAssignees);
+
+            double distanceTotale = (Double) infosTrajet.get("distanceTotale");
+            List<String> ordreTrajet = (List<String>) infosTrajet.get("ordreTrajet");
+            String heureRetour = calculerHeureRetour(heureVol, distanceTotale, vitesseMoyenne);
+
+            vehiculeHeureRetour.put(vehiculeId, heureRetour);
+
+            Map<String, Object> trajet = new LinkedHashMap<>();
+            trajet.put("vehicule", v);
+            trajet.put("reservations", reservationsAssignees);
+            trajet.put("distanceTotale", distanceTotale);
+            trajet.put("ordreTrajet", ordreTrajet);
+            trajet.put("heureDepart", heureVol);
+            trajet.put("heureRetour", heureRetour);
+            trajets.add(trajet);
+        }
+    }
+
+    private Map<String, Object> calculerInfosTrajet(List<Reservation> reservationsAssignees) {
+        Map<String, Object> infosTrajet = new HashMap<>();
+        infosTrajet.put("distanceTotale", 0.0);
+        infosTrajet.put("ordreTrajet", new ArrayList<String>());
+
+        try {
+            Map<String, Object> greedyResult = calculerDistanceGreedy(reservationsAssignees);
+            infosTrajet.put("distanceTotale", greedyResult.get("distanceTotale"));
+            infosTrajet.put("ordreTrajet", greedyResult.get("ordreTrajet"));
+        } catch (Exception e) {
+            System.err.println("[PLANNING] Erreur calcul distance: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return infosTrajet;
+    }
+
+    private String calculerHeureRetour(String heureDepart, double distanceTotale, double vitesseMoyenne) {
+        long dureeMs = (long) ((distanceTotale / vitesseMoyenne) * 3600 * 1000);
+        return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+            .format(new java.util.Date(java.sql.Timestamp.valueOf(heureDepart).getTime() + dureeMs));
     }
 
     /**

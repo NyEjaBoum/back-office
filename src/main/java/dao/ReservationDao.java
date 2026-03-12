@@ -134,47 +134,98 @@ public class ReservationDao {
      * pour que les plus grosses soient traitées en premier lors de la planification.
      */
     public Map<String, List<Reservation>> regrouperParVol(List<Reservation> reservations, int tempsAttente) {
-        // clé = heure du PREMIER arrivé du groupe (heure de référence du vol)
         Map<String, List<Reservation>> vols = new LinkedHashMap<>();
 
-        for (Reservation r : reservations) {
-            String heureR = r.getDateArrivee(); // format "yyyy-MM-dd HH:mm:ss"
-            String groupeTrouve = null;
+        for (Reservation reservation : reservations) {
+            String heureReservation = reservation.getDateArrivee();
+            String heureGroupe = trouverGroupeCompatible(vols, heureReservation, tempsAttente);
 
-            // Chercher un groupe existant dont l'heure de début est dans la fenêtre
-            for (String heureGroupe : vols.keySet()) {
-                long diffMinutes = Math.abs(diffEnMinutes(heureR, heureGroupe));
-                if (diffMinutes <= tempsAttente) {
-                    groupeTrouve = heureGroupe;
-                    break;
-                }
-            }
-
-            if (groupeTrouve != null) {
-                vols.get(groupeTrouve).add(r);
+            if (heureGroupe != null) {
+                ajouterReservationAuGroupe(vols, heureGroupe, reservation);
             } else {
-                // Nouveau groupe : la clé est l'heure de cette réservation
-                List<Reservation> newGroupe = new ArrayList<>();
-                newGroupe.add(r);
-                vols.put(heureR, newGroupe);
+                creerNouveauGroupe(vols, heureReservation, reservation);
             }
         }
 
-        // Trier chaque groupe par nbPassager DÉCROISSANT
+        // NOUVEAU : mettre à jour les clés des groupes avec la dernière heure
+        mettreAJourHeuresGroupes(vols);
+        
+        trierGroupesParNbPassagerDesc(vols);
+        return vols;
+    }
+
+    /**
+     * Met à jour les clés des groupes : 
+     * - ancienne clé = première heure
+     * - nouvelle clé = dernière heure du groupe
+     */
+    private void mettreAJourHeuresGroupes(Map<String, List<Reservation>> vols) {
+        Map<String, List<Reservation>> volsMisAJour = new LinkedHashMap<>();
+        
         for (List<Reservation> groupe : vols.values()) {
-            // Bubble sort décroissant
-            for (int i = 0; i < groupe.size() - 1; i++) {
-                for (int j = 0; j < groupe.size() - i - 1; j++) {
-                    if (groupe.get(j).getNbPassager() < groupe.get(j + 1).getNbPassager()) {
-                        Reservation tmp = groupe.get(j);
-                        groupe.set(j, groupe.get(j + 1));
-                        groupe.set(j + 1, tmp);
-                    }
+            String dernierHeure = trouveDerniereHeure(groupe);
+            volsMisAJour.put(dernierHeure, groupe);
+        }
+        
+        vols.clear();
+        vols.putAll(volsMisAJour);
+    }
+
+    /**
+     * Trouve l'heure de départ = dernière heure (max) du groupe
+     */
+    private String trouveDerniereHeure(List<Reservation> groupe) {
+        String derniere = groupe.get(0).getDateArrivee();
+        for (Reservation r : groupe) {
+            if (r.getDateArrivee().compareTo(derniere) > 0) {
+                derniere = r.getDateArrivee();
+            }
+        }
+        return derniere;
+    }
+
+    private String trouverGroupeCompatible(Map<String, List<Reservation>> vols, String heureReservation, int tempsAttente) {
+        for (String heureGroupe : vols.keySet()) {
+            long diffMinutes = Math.abs(diffEnMinutes(heureReservation, heureGroupe));
+            if (diffMinutes <= tempsAttente) {
+                return heureGroupe;
+            }
+        }
+        return null;
+    }
+
+    private void ajouterReservationAuGroupe(
+            Map<String, List<Reservation>> vols,
+            String heureGroupe,
+            Reservation reservation) {
+        vols.get(heureGroupe).add(reservation);
+    }
+
+    private void creerNouveauGroupe(
+            Map<String, List<Reservation>> vols,
+            String heureReservation,
+            Reservation reservation) {
+        List<Reservation> newGroupe = new ArrayList<>();
+        newGroupe.add(reservation);
+        vols.put(heureReservation, newGroupe);
+    }
+
+    private void trierGroupesParNbPassagerDesc(Map<String, List<Reservation>> vols) {
+        for (List<Reservation> groupe : vols.values()) {
+            trierGroupeParNbPassagerDesc(groupe);
+        }
+    }
+
+    private void trierGroupeParNbPassagerDesc(List<Reservation> groupe) {
+        for (int i = 0; i < groupe.size() - 1; i++) {
+            for (int j = 0; j < groupe.size() - i - 1; j++) {
+                if (groupe.get(j).getNbPassager() < groupe.get(j + 1).getNbPassager()) {
+                    Reservation tmp = groupe.get(j);
+                    groupe.set(j, groupe.get(j + 1));
+                    groupe.set(j + 1, tmp);
                 }
             }
         }
-
-        return vols;
     }
 
     /**
