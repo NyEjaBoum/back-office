@@ -52,55 +52,36 @@ INSERT INTO dev.type_lieu (code, libelle) VALUES
 -- Lieux (1=Aeroport, 2=Colbert, 3=Novotel, 4=Ibis, 5=Lokanga, 6=Carlton)
 INSERT INTO dev.lieu (code, libelle, idTypeLieu) VALUES
     ('AERO', 'Aeroport', (SELECT id FROM dev.type_lieu WHERE code = 'AEROPORT')),
-    ('COLB', 'Colbert', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
-    ('NOVO', 'Novotel', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
-    ('IBIS', 'Ibis', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
-    ('LOKA', 'Lokanga', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
-    ('CARL', 'Carlton', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL'));
+    ('COLB', 'Hotel 1', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL'));
+    -- ('NOVO', 'Novotel', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
+    -- ('IBIS', 'Ibis', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
+    -- ('LOKA', 'Lokanga', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL')),
+    -- ('CARL', 'Carlton', (SELECT id FROM dev.type_lieu WHERE code = 'HOTEL'));
 
 -- Véhicules
 INSERT INTO dev.vehicule (reference, nbrPlace, typeCarburant) VALUES
-    ('MINIBUS-1', 15, 'D'),
-    ('VAN-1', 8, 'ES'),
-    ('VAN-2', 8, 'D'),
-    ('VOITURE-1', 4, 'H'),
-    ('BUS-1', 30, 'D');
-
+    ('Vehicule 1', 12, 'D'),
+    ('Vehicule 2', 5, 'ES'),
+    ('Vehicule 3', 5, 'D'),
+    ('Vehicule 4', 12, 'ES');
+    
 -- Paramètres (vitesse moyenne = 40 km/h, temps d'attente = 30 min)
 INSERT INTO dev.parametre (vitesseMoyenne, tempsAttente) VALUES
-    (40, 30);
+    (50, 0);
 
 -- Distances (en km, une seule ligne par paire)
 -- 1=Aeroport, 2=Colbert, 3=Novotel, 4=Ibis, 5=Lokanga, 6=Carlton
 INSERT INTO dev.distance ("from", "to", km) VALUES
-    (1, 2, 7.0),
-    (1, 3, 5.0),
-    (1, 4, 6.0),
-    (1, 5, 10.0),
-    (1, 6, 8.0),
-    (2, 3, 3.5),
-    (2, 4, 2.2),
-    (2, 5, 5.0),
-    (2, 6, 4.1),
-    (3, 4, 1.8),
-    (3, 5, 3.7),
-    (3, 6, 2.9),
-    (4, 5, 4.5),
-    (4, 6, 2.0),
-    (5, 6, 3.3);
+    (1, 2, 50.0);
 
 -- Réservations de test
 INSERT INTO dev.reservation (idClient, nbPassager, idLieu, dateArrivee) VALUES
-    ('1001', 3, 2, '2026-03-01 08:00:00'),
-    ('1002', 2, 3, '2026-03-01 08:30:00'),
-    ('1003', 4, 4, '2026-03-01 08:15:00'),
-    ('1004', 7, 5, '2026-03-01 08:08:00'),
-    ('1005', 8, 6, '2026-03-01 09:00:00'),
-    ('1006', 1, 2, '2026-03-01 08:02:00'),
-    ('1007', 12, 3, '2026-03-01 09:00:00'),
-    ('1008', 5, 4, '2026-03-01 09:00:00'),
-    ('1009', 2, 5, '2026-03-01 09:00:00'),
-    ('1010', 15, 6, '2026-03-01 09:00:00');
+    ('CLIENT1', 7, 2, '2026-03-12 09:00:00'),
+    ('CLIENT2', 11, 2, '2026-03-12 09:00:00'),
+    ('CLIENT3', 3, 2, '2026-03-12 09:00:00'),
+    ('CLIENT4', 1, 2, '2026-03-12 09:00:00'),
+    ('CLIENT5', 2, 2, '2026-03-12 09:00:00'),
+    ('CLIENT6', 20, 2, '2026-03-12 09:00:00');
 
 -- ===========================================
 -- COPIER VERS STAGING ET PROD
