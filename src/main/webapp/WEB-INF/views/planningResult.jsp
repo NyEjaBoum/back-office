@@ -68,7 +68,7 @@
                                 <div class="reservation-item">
                                     <span class="badge badge-blue"><%= r.getNomLieu() %></span>
                                     <span class="badge badge-purple"><%= r.getNbPassager() %> pass.</span>
-                                    <span class="text-muted"><%= r.getDateArrivee() %></span>
+                                    <span class="text-muted"><%= r.getDateArrivee().substring(11) %></span>
                                 </div>
                             <% } %>
                         </td>
@@ -85,8 +85,8 @@
                             <% } %>
                         </td>
                         <td><%= String.format("%.1f", ligne.get("distanceTotale")) %> km</td>
-                        <td><%= ligne.get("heureDepart") %></td>
-                        <td><%= ligne.get("heureRetour") %></td>
+                        <td><%= ligne.get("heureDepart").toString().substring(11) %></td>
+                        <td><%= ligne.get("heureRetour").toString().substring(11) %></td>
                     </tr>
                 <% } %>
                 </tbody>
@@ -118,7 +118,7 @@
                         <td><%= r.getIdClient() %></td>
                         <td><%= r.getNbPassager() %></td>
                         <td><span class="badge badge-blue"><%= r.getNomLieu() %></span></td>
-                        <td><%= r.getDateArrivee() %></td>
+                        <td><%= r.getDateArrivee().substring(11) %></td>
                     </tr>
                 <% } %>
                 </tbody>
