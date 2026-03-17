@@ -249,6 +249,11 @@ tr:hover td {
     color: #64748b;
 }
 
+.badge-warning {
+    background: #fef3c7;
+    color: #d97706;
+}
+
 /* ===== Utility ===== */
 .text-muted {
     color: #94a3b8;
@@ -317,6 +322,20 @@ tr:hover td {
 }
 
 /* ===== Planning specific ===== */
+.groupe-header td {
+    background: #e2e8f0 !important;
+    padding: 8px 16px;
+    border-bottom: 2px solid #cbd5e1;
+}
+
+.groupe-label {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
 .reservation-item {
     padding: 4px 0;
 }

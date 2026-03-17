@@ -44,8 +44,8 @@ public class PlanningController {
             // 4. Regrouper par vol avec temps d'attente
             Map<String, List<Reservation>> vols = reservationDao.regrouperParVol(reservationsJour, tempsAttente);
 
-            // 5. Planifier
-            Map<String, Object> resultat = planningDao.planifier(vols, vehicules);
+            // 5. Planifier (passer la date pour persistance et suppression des anciennes assignations)
+            Map<String, Object> resultat = planningDao.planifier(date, vols, vehicules);
 
             // 6. Extraire les résultats
             List<Map<String, Object>> trajets = (List<Map<String, Object>>) resultat.get("trajets");

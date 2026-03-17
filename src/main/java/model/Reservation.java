@@ -10,6 +10,9 @@ public class Reservation {
     // Pour l'affichage avec les infos du lieu
     private String nomLieu;
 
+    // Flag pour les réservations reportées à un groupe horaire ultérieur
+    private boolean decalee;
+
     public Reservation() {}
 
     public Reservation(int id, String idClient, int nbPassager, int idLieu, String dateArrivee, String nomLieu) {
@@ -38,6 +41,9 @@ public class Reservation {
 
     public String getNomLieu() { return nomLieu; }
     public void setNomLieu(String nomLieu) { this.nomLieu = nomLieu; }
+
+    public boolean isDecalee() { return decalee; }
+    public void setDecalee(boolean decalee) { this.decalee = decalee; }
 
     @Override
     public String toString() {
