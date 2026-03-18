@@ -30,32 +30,27 @@ INSERT INTO type_lieu (code, libelle) VALUES
 -- Lieux (1=Aeroport, 2=Colbert)
 INSERT INTO lieu (code, libelle, idTypeLieu) VALUES
     ('AERO', 'Aeroport', (SELECT id FROM type_lieu WHERE code = 'AEROPORT')),
-    ('COLB', 'Hotel 1', (SELECT id FROM type_lieu WHERE code = 'HOTEL'));
+    ('COLB', 'Colbert', (SELECT id FROM type_lieu WHERE code = 'HOTEL'));
     -- Tu peux décommenter et compléter ici si tu veux plus de lieux
 
--- Véhicules
+-- Vehicules de test (scenario 2: 3 vehicules)
 INSERT INTO vehicule (reference, nbrPlace, typeCarburant) VALUES
-    ('Vehicule 1', 12, 'D'),
-    ('Vehicule 2', 5, 'ES'),
-    ('Vehicule 3', 5, 'D'),
-    ('Vehicule 4', 12, 'ES');
+    ('V18', 18, 'D'),
+    ('V8', 8, 'ES'),
+    ('V6', 6, 'H');
 
 -- Paramètres
 INSERT INTO parametre (vitesseMoyenne, tempsAttente) VALUES
-    (50, 0);
+    (50, 30);
 
--- Distances
+-- Distances (aller-retour Aeroport <-> Colbert)
 INSERT INTO distance ("from", "to", km) VALUES
-    (1, 2, 50.0);
+    (1, 2, 5.0),
+    (2, 1, 5.0);
 
--- Réservations de test
+-- Reservations de test (scenario 2: R1=8, R2=7, R3=5, R4=4)
 INSERT INTO reservation (idClient, nbPassager, idLieu, dateArrivee) VALUES
-    ('CLIENT1', 7, 2, '2026-03-12 09:00:00'),
-    ('CLIENT2', 11, 2, '2026-03-12 09:00:00'),
-    ('CLIENT3', 3, 2, '2026-03-12 09:00:00'),
-    ('CLIENT4', 1, 2, '2026-03-12 09:00:00'),
-    ('CLIENT5', 2, 2, '2026-03-12 09:00:00'),
-    ('CLIENT6', 20, 2, '2026-03-12 09:00:00');
+    ('C23', 23, 2, '2026-04-16 08:10:00');
 
 -- ===========================================
 -- COPIER VERS STAGING ET PROD
