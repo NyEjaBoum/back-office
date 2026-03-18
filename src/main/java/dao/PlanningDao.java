@@ -268,38 +268,34 @@ public class PlanningDao {
                 for (Reservation r : nonAssigneesGroupe) {
                     int reste = r.getNbPassager();
 
-                    // ÉTAPE 1 : essayer une assignation complète
-                    Integer vehiculeChoisi = chercherVehiculeDejaUtilise(assignationsPassage, placesRestantes, reste, vehicules, trajetsParVehicule);
-                    if (vehiculeChoisi == null) {
-                        vehiculeChoisi = chercherNouveauVehicule(assignationsPassage, placesRestantes, reste, vehicules, trajetsParVehicule);
-                    }
+                    // Boucle : tant qu'il reste des passagers, on cherche un véhicule
+                    // Règle : tant qu'une voiture a des places, on la remplit avant d'en changer
+                    while (reste > 0) {
+                        // 1. Chercher d'abord un véhicule DÉJÀ UTILISÉ avec des places restantes
+                        Integer vehiculeChoisi = chercherVehiculeDejaUtilise(
+                            assignationsPassage, placesRestantes, reste, vehicules, trajetsParVehicule);
 
-                    if (vehiculeChoisi != null) {
-                        // Assignation complète possible
-                        assignerFraction(assignationsPassage, placesRestantes, vehiculeChoisi, r, reste);
-                        assignationDao.insert(new Assignation(vehiculeChoisi, r.getId(), reste, r.isDecalee()));
-                        reste = 0;  // tout est assigné
-                    }
-
-                    // ÉTAPE 2 : si reste > 0, fractionner sur les véhicules dispo (capacite totale DESC)
-                    if (reste > 0) {
-                        // Trier les véhicules disponibles par capacite totale (DESC)
-                        List<Integer> vehiculesDispoParCapacite = trierVehiculesDisponiblesParCapaciteDesc(vehicules, placesRestantes);
-
-                        for (Integer vehiculeId : vehiculesDispoParCapacite) {
-                            if (reste <= 0) break;
-
-                            int libre = placesRestantes.get(vehiculeId);
-                            int qte = Math.min(reste, libre);
-
-                            assignerFraction(assignationsPassage, placesRestantes, vehiculeId, r, qte);
-                            assignationDao.insert(new Assignation(vehiculeId, r.getId(), qte, r.isDecalee()));
-
-                            reste -= qte;
+                        // 2. Si aucun véhicule déjà utilisé, chercher un NOUVEAU véhicule
+                        if (vehiculeChoisi == null) {
+                            vehiculeChoisi = chercherNouveauVehicule(
+                                assignationsPassage, placesRestantes, reste, vehicules, trajetsParVehicule);
                         }
+
+                        if (vehiculeChoisi == null) {
+                            // Plus de véhicule disponible, on sort de la boucle
+                            break;
+                        }
+
+                        int placesLibres = placesRestantes.get(vehiculeChoisi);
+                        int qte = Math.min(reste, placesLibres);
+
+                        assignerFraction(assignationsPassage, placesRestantes, vehiculeChoisi, r, qte);
+                        assignationDao.insert(new Assignation(vehiculeChoisi, r.getId(), qte, r.isDecalee()));
+
+                        reste -= qte;
                     }
 
-                    // ÉTAPE 3 : si reliquat, reporter au groupe suivant
+                    // Si reliquat, reporter au groupe suivant
                     if (reste > 0) {
                         Reservation reliquat = new Reservation();
                         reliquat.setId(r.getId());  // IMPORTANT: garder le même ID (qui existe en base)
@@ -495,7 +491,94 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
     }
 
     /**
-     * Cherche un véhicule déjà utilisé dans ce vol avec assez de places restantes.
+     * Cherche le meilleur véhicule pour un nombre de passagers donné.
+     * Même logique que l'originale, appliquée aux fractions :
+     *   1. Si un véhicule a placesRestantes >= nbPassagers : choisir celui avec le MOINS de places restantes
+     *   2. Sinon : choisir celui avec le PLUS de places restantes (pour mettre le max)
+     *   3. En cas d'égalité : moins de trajets, puis priorité carburant D > ES > H
+     */
+    private Integer chercherMeilleurVehiculePourPassagers(
+            Map<Integer, List<ReservationAffectee>> assignationsPassage,
+            Map<Integer, Integer> placesRestantes,
+            int nbPassagers,
+            List<Vehicule> vehicules,
+            Map<Integer, Integer> trajetsParVehicule) {
+
+        // Collecter les véhicules disponibles (places restantes > 0)
+        List<Vehicule> candidats = new ArrayList<>();
+        for (Vehicule v : vehicules) {
+            Integer places = placesRestantes.get(v.getId());
+            if (places != null && places > 0) {
+                candidats.add(v);
+            }
+        }
+
+        if (candidats.isEmpty()) return null;
+
+        // Séparer en 2 groupes : ceux avec assez de places, et les autres
+        List<Vehicule> suffisants = new ArrayList<>();
+        List<Vehicule> insuffisants = new ArrayList<>();
+
+        for (Vehicule v : candidats) {
+            int places = placesRestantes.get(v.getId());
+            if (places >= nbPassagers) {
+                suffisants.add(v);
+            } else {
+                insuffisants.add(v);
+            }
+        }
+
+        if (!suffisants.isEmpty()) {
+            // Trier par places restantes ASC (le moins de places restantes en premier)
+            // En cas d'égalité : moins de trajets, puis carburant D > ES > H
+            return choisirMeilleurVehicule(suffisants, placesRestantes, trajetsParVehicule);
+        } else {
+            // Aucun véhicule avec assez de places
+            // Prendre celui avec le PLUS de places restantes (pour mettre le max)
+            trierParPlacesRestantesDesc(insuffisants, placesRestantes, trajetsParVehicule);
+            return insuffisants.get(0).getId();
+        }
+    }
+
+    /**
+     * Trie les véhicules par places restantes décroissantes.
+     * En cas d'égalité : moins de trajets, puis carburant D > ES > H
+     */
+    private void trierParPlacesRestantesDesc(List<Vehicule> vehicules, Map<Integer, Integer> placesRestantes, Map<Integer, Integer> trajetsParVehicule) {
+        for (int i = 0; i < vehicules.size() - 1; i++) {
+            for (int j = 0; j < vehicules.size() - i - 1; j++) {
+                Vehicule v1 = vehicules.get(j);
+                Vehicule v2 = vehicules.get(j + 1);
+                int p1 = placesRestantes.get(v1.getId());
+                int p2 = placesRestantes.get(v2.getId());
+
+                boolean swap = false;
+                if (p1 < p2) {
+                    // Plus de places restantes en premier
+                    swap = true;
+                } else if (p1 == p2) {
+                    int t1 = trajetsParVehicule.getOrDefault(v1.getId(), 0);
+                    int t2 = trajetsParVehicule.getOrDefault(v2.getId(), 0);
+                    if (t1 > t2) {
+                        swap = true;
+                    } else if (t1 == t2) {
+                        if (prioriteCarburant(v1.getTypeCarburant()) < prioriteCarburant(v2.getTypeCarburant())) {
+                            swap = true;
+                        }
+                    }
+                }
+
+                if (swap) {
+                    vehicules.set(j, v2);
+                    vehicules.set(j + 1, v1);
+                }
+            }
+        }
+    }
+
+    /**
+     * Cherche un véhicule déjà utilisé dans ce vol avec des places restantes > 0.
+     * Accepte le fractionnement : peut retourner un véhicule avec places < nbPassagers.
      */
     private Integer chercherVehiculeDejaUtilise(
             Map<Integer, List<ReservationAffectee>> assignationsVol,
@@ -507,16 +590,17 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
         List<Vehicule> candidats = new ArrayList<>();
         for (Integer vid : assignationsVol.keySet()) {
             Integer places = placesRestantes.get(vid);
-            if (places != null && places >= nbPassagers) {
+            if (places != null && places > 0) {  // Changé : accepte n'importe quelle place > 0
                 Vehicule v = trouverVehiculeParId(vehicules, vid);
                 if (v != null) candidats.add(v);
             }
         }
-        return choisirMeilleurVehicule(candidats, placesRestantes, trajetsParVehicule);
+        return choisirMeilleurVehiculeAvecFractionnement(candidats, placesRestantes, nbPassagers, trajetsParVehicule);
     }
 
     /**
-     * Cherche un nouveau véhicule pas encore utilisé dans ce vol avec assez de places.
+     * Cherche un nouveau véhicule pas encore utilisé dans ce vol avec des places > 0.
+     * Accepte le fractionnement : peut retourner un véhicule avec places < nbPassagers.
      */
     private Integer chercherNouveauVehicule(
             Map<Integer, List<ReservationAffectee>> assignationsVol,
@@ -529,13 +613,51 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
         for (Map.Entry<Integer, Integer> entry : placesRestantes.entrySet()) {
             int vid = entry.getKey();
             int places = entry.getValue();
-            // Pas encore utilisé dans ce vol ET assez de places
-            if (!assignationsVol.containsKey(vid) && places >= nbPassagers) {
+            // Pas encore utilisé dans ce vol ET places > 0
+            if (!assignationsVol.containsKey(vid) && places > 0) {  // Changé : accepte n'importe quelle place > 0
                 Vehicule v = trouverVehiculeParId(vehicules, vid);
                 if (v != null) candidats.add(v);
             }
         }
-        return choisirMeilleurVehicule(candidats, placesRestantes, trajetsParVehicule);
+        return choisirMeilleurVehiculeAvecFractionnement(candidats, placesRestantes, nbPassagers, trajetsParVehicule);
+    }
+
+    /**
+     * Choisit le meilleur véhicule parmi les candidats, avec support du fractionnement.
+     * Logique :
+     *   - Si places >= nbPassagers : choisir le moins de places restantes (ajusté au mieux)
+     *   - Sinon : choisir le plus de places restantes (pour mettre le max)
+     *   - En cas d'égalité : moins de trajets, puis carburant D > ES > H
+     */
+    private Integer choisirMeilleurVehiculeAvecFractionnement(
+            List<Vehicule> candidats,
+            Map<Integer, Integer> placesRestantes,
+            int nbPassagers,
+            Map<Integer, Integer> trajetsParVehicule) {
+
+        if (candidats.isEmpty()) return null;
+
+        // Séparer en 2 groupes : suffisants (places >= nbPassagers) et insuffisants
+        List<Vehicule> suffisants = new ArrayList<>();
+        List<Vehicule> insuffisants = new ArrayList<>();
+
+        for (Vehicule v : candidats) {
+            int places = placesRestantes.get(v.getId());
+            if (places >= nbPassagers) {
+                suffisants.add(v);
+            } else {
+                insuffisants.add(v);
+            }
+        }
+
+        if (!suffisants.isEmpty()) {
+            // Trier par places restantes ASC (le moins de places restantes en premier)
+            return choisirMeilleurVehicule(suffisants, placesRestantes, trajetsParVehicule);
+        } else {
+            // Trier par places restantes DESC (le plus de places restantes en premier)
+            trierParPlacesRestantesDesc(insuffisants, placesRestantes, trajetsParVehicule);
+            return insuffisants.get(0).getId();
+        }
     }
 
     /**
