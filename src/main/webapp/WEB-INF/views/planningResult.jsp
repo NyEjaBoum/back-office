@@ -52,13 +52,17 @@
                 </thead>
                 <tbody>
                 <% String currentGroupe = "";
+                   int groupeIndex = 0;
+                   String[] groupeColors = {"#eff6ff", "#f0fdf4", "#fdf4ff", "#fef3c7", "#fdf2f8", "#ecfdf5", "#fff7ed"};
                    for (Map<String, Object> ligne : vehiculesPlanifies) {
                     Vehicule v = (Vehicule) ligne.get("vehicule");
                     String groupeHeure = (String) ligne.get("groupeHeure");
                     boolean newGroupe = !groupeHeure.equals(currentGroupe);
                     if (newGroupe) {
+                        if (!currentGroupe.isEmpty()) { groupeIndex++; }
                         currentGroupe = groupeHeure;
                     }
+                    String bgColor = groupeColors[groupeIndex % groupeColors.length];
                 %>
                     <% if (newGroupe) { %>
                     <tr class="groupe-header">
@@ -67,7 +71,7 @@
                         </td>
                     </tr>
                     <% } %>
-                    <tr>
+                    <tr style="background: <%= bgColor %>">
                         <td>
                             <strong><%= v.getReference() %></strong>
                             <br>
@@ -79,8 +83,6 @@
                             <% List<Reservation> groupe = (List<Reservation>) ligne.get("reservations");
                                for (Reservation r : groupe) { %>
                                 <div class="reservation-item">
-                                    <span class="text-muted">#<%= r.getId() %></span>
-                                    <span class="text-muted">Client: <%= r.getIdClient() %></span>
                                     <span class="badge badge-blue"><%= r.getNomLieu() %></span>
                                     <span class="badge badge-purple"><%= r.getNbPassager() %> pass.</span>
                                     <span class="text-muted"><%= r.getDateArrivee().substring(11) %></span>
