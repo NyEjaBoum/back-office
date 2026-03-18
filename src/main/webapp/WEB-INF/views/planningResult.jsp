@@ -80,17 +80,39 @@
                             </span>
                         </td>
                         <td>
-                            <% List<Reservation> groupe = (List<Reservation>) ligne.get("reservations");
-                               for (Reservation r : groupe) { %>
+                            <% java.util.List<java.util.Map<String, Object>> detailsFractions = (java.util.List<java.util.Map<String, Object>>) ligne.get("detailsFractions");
+                               java.util.Set<Integer> reservationsDejaTaitees = new java.util.HashSet<>();
+
+                               if (detailsFractions != null) {
+                                   for (java.util.Map<String, Object> fraction : detailsFractions) {
+                                       Integer idRes = (Integer) fraction.get("id");
+                                       if (!reservationsDejaTaitees.contains(idRes)) {
+                                           String nomLieu = (String) fraction.get("nomLieu");
+                                           String idClient = (String) fraction.get("idClient");
+                                           int nbAffecte = (Integer) fraction.get("nbPassagerAffecte");
+                                           int nbOriginal = (Integer) fraction.get("nbPassagerOriginal");
+                                           String dateArrivee = (String) fraction.get("dateArrivee");
+                                           boolean decalee = (Boolean) fraction.get("decalee");
+                            %>
                                 <div class="reservation-item">
-                                    <span class="badge badge-blue"><%= r.getNomLieu() %></span>
-                                    <span class="badge badge-purple"><%= r.getNbPassager() %> pass.</span>
-                                    <span class="text-muted"><%= r.getDateArrivee().substring(11) %></span>
-                                    <% if (r.isDecalee()) { %>
+                                    <span class="badge">R#<%= idRes %></span>
+                                    <span class="badge">C#<%= idClient %></span>
+                                    <span class="badge badge-blue"><%= nomLieu %></span>
+                                    <span class="badge badge-purple"><%= nbAffecte %> pass.</span>
+                                    <span class="text-muted"><%= dateArrivee.substring(11) %></span>
+                                    <% if (nbAffecte < nbOriginal) { %>
+                                        <span class="badge badge-warning">Fraction</span>
+                                    <% } %>
+                                    <% if (decalee) { %>
                                         <span class="badge badge-warning">DECALEE</span>
                                     <% } %>
                                 </div>
-                            <% } %>
+                            <%
+                                           reservationsDejaTaitees.add(idRes);
+                                       }
+                                   }
+                               }
+                            %>
                         </td>
                         <td>
                             <% List<String> ordreTrajet = (List<String>) ligne.get("ordreTrajet");

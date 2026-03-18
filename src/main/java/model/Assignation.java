@@ -4,23 +4,26 @@ public class Assignation {
     private int id;
     private int idVehicule;
     private int idReservation;
+    private int nbPassagerAffecte;
     private boolean decalee;
     private String datePlanification;
 
     // Constructeurs
     public Assignation() {}
 
-    public Assignation(int id, int idVehicule, int idReservation, boolean decalee, String datePlanification) {
+    public Assignation(int id, int idVehicule, int idReservation, int nbPassagerAffecte, boolean decalee, String datePlanification) {
         this.id = id;
         this.idVehicule = idVehicule;
         this.idReservation = idReservation;
+        this.nbPassagerAffecte = nbPassagerAffecte;
         this.decalee = decalee;
         this.datePlanification = datePlanification;
     }
 
-    public Assignation(int idVehicule, int idReservation, boolean decalee) {
+    public Assignation(int idVehicule, int idReservation, int nbPassagerAffecte, boolean decalee) {
         this.idVehicule = idVehicule;
         this.idReservation = idReservation;
+        this.nbPassagerAffecte = nbPassagerAffecte;
         this.decalee = decalee;
     }
 
@@ -49,6 +52,14 @@ public class Assignation {
         this.idReservation = idReservation;
     }
 
+    public int getNbPassagerAffecte() {
+        return nbPassagerAffecte;
+    }
+
+    public void setNbPassagerAffecte(int nbPassagerAffecte) {
+        this.nbPassagerAffecte = nbPassagerAffecte;
+    }
+
     public boolean isDecalee() {
         return decalee;
     }
@@ -71,6 +82,7 @@ public class Assignation {
                 "id=" + id +
                 ", idVehicule=" + idVehicule +
                 ", idReservation=" + idReservation +
+                ", nbPassagerAffecte=" + nbPassagerAffecte +
                 ", decalee=" + decalee +
                 ", datePlanification='" + datePlanification + '\'' +
                 '}';
