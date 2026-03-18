@@ -14,12 +14,6 @@
 -- ==============================================================================
 
 -- ==================== NETTOYAGE ====================
-
-\c voiture_Reservation_sprint5
-SET search_path TO dev;
-
-
-
 TRUNCATE dev.assignation  RESTART IDENTITY CASCADE;
 TRUNCATE dev.reservation  RESTART IDENTITY CASCADE;
 TRUNCATE dev.distance     RESTART IDENTITY CASCADE;
