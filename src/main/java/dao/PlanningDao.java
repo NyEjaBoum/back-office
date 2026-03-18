@@ -161,6 +161,62 @@ public class PlanningDao {
      * - Persistance en base (table assignation)
      * - Choix véhicule : places, puis trajets, puis carburant D > ES > H
      */
+
+    /**
+     * Classe interne pour tracker une fraction de réservation assignée.
+     * Permet de gérer le fractionnement : une réservation peut être divisée sur plusieurs véhicules.
+     * Chaque fraction créera une ligne separate dans la table assignation.
+     */
+    private static class ReservationAffectee {
+        private Reservation reservation;
+        private int nbPassagerAffecte;  // nombre réel assigné à cette fraction
+
+        public ReservationAffectee(Reservation reservation, int nbPassagerAffecte) {
+            this.reservation = reservation;
+            this.nbPassagerAffecte = nbPassagerAffecte;
+        }
+
+        public Reservation getReservation() {
+            return reservation;
+        }
+
+        public int getNbPassagerAffecte() {
+            return nbPassagerAffecte;
+        }
+    }
+
+    /**
+     * Assigne une fraction de réservation à un véhicule.
+     * Cette méthode est appelée pour CHAQUE fraction (en cas de fractionnement).
+     *
+     * @param assignationsVol map idVehicule -> liste de fractions
+     * @param placesRestantes map idVehicule -> places encore disponibles
+     * @param vehiculeChoisiId id du véhicule recevant la fraction
+     * @param reservation la réservation parente (peut être fractionnée)
+     * @param nbPassagersAffectes nombre de passagers de cette fraction
+     */
+    private void assignerFraction(
+            Map<Integer, List<ReservationAffectee>> assignationsVol,
+            Map<Integer, Integer> placesRestantes,
+            Integer vehiculeChoisiId,
+            Reservation reservation,
+            int nbPassagersAffectes) {
+        // Initialiser la liste pour ce véhicule s'il ne l'est pas déjà
+        if (!assignationsVol.containsKey(vehiculeChoisiId)) {
+            assignationsVol.put(vehiculeChoisiId, new ArrayList<>());
+        }
+
+        // Ajouter la fraction à la liste du véhicule
+        assignationsVol.get(vehiculeChoisiId)
+                .add(new ReservationAffectee(reservation, nbPassagersAffectes));
+
+        // Décrémenter les places restantes du véhicule
+        placesRestantes.put(
+                vehiculeChoisiId,
+                placesRestantes.get(vehiculeChoisiId) - nbPassagersAffectes
+        );
+    }
+
     public Map<String, Object> planifier(
             String date,
             Map<String, List<Reservation>> vols,
@@ -200,33 +256,73 @@ public class PlanningDao {
             String heureDepartEffective = heureDepart;
             List<Reservation> nonAssigneesGroupe = new ArrayList<>(reservationsGroupe);
 
+            // AGRÉGATION des assignations sur toutes les itérations de la boucle while
+            Map<Integer, List<ReservationAffectee>> assignationsPassageAgregees = new LinkedHashMap<>();
+
             // BOUCLE INTERNE AU GROUPE
             while (true) {
                 Map<Integer, Integer> placesRestantes = initialiserPlacesRestantes(vehicules, vehiculeHeureRetour, heureDepartEffective);
-                Map<Integer, List<Reservation>> assignationsPassage = new LinkedHashMap<>();
+                Map<Integer, List<ReservationAffectee>> assignationsPassage = new LinkedHashMap<>();
                 List<Reservation> encoreNonAssignees = new ArrayList<>();
 
                 for (Reservation r : nonAssigneesGroupe) {
-                    int nbPassagers = r.getNbPassager();
-                    Integer vehiculeChoisiId = chercherVehiculeDejaUtilise(assignationsPassage, placesRestantes, nbPassagers, vehicules, trajetsParVehicule);
+                    int reste = r.getNbPassager();
 
-                    if (vehiculeChoisiId == null) {
-                        vehiculeChoisiId = chercherNouveauVehicule(assignationsPassage, placesRestantes, nbPassagers, vehicules, trajetsParVehicule);
+                    // ÉTAPE 1 : essayer une assignation complète
+                    Integer vehiculeChoisi = chercherVehiculeDejaUtilise(assignationsPassage, placesRestantes, reste, vehicules, trajetsParVehicule);
+                    if (vehiculeChoisi == null) {
+                        vehiculeChoisi = chercherNouveauVehicule(assignationsPassage, placesRestantes, reste, vehicules, trajetsParVehicule);
                     }
 
-                    if (vehiculeChoisiId != null) {
-                        assignerReservation(assignationsPassage, placesRestantes, vehiculeChoisiId, r, nbPassagers);
+                    if (vehiculeChoisi != null) {
+                        // Assignation complète possible
+                        assignerFraction(assignationsPassage, placesRestantes, vehiculeChoisi, r, reste);
+                        assignationDao.insert(new Assignation(vehiculeChoisi, r.getId(), reste, r.isDecalee()));
+                        reste = 0;  // tout est assigné
+                    }
 
-                        // Persister en base
-                        Assignation assignation = new Assignation(vehiculeChoisiId, r.getId(), r.isDecalee());
-                        assignationDao.insert(assignation);
-                    } else {
-                        encoreNonAssignees.add(r);
+                    // ÉTAPE 2 : si reste > 0, fractionner sur les véhicules dispo (capacite totale DESC)
+                    if (reste > 0) {
+                        // Trier les véhicules disponibles par capacite totale (DESC)
+                        List<Integer> vehiculesDispoParCapacite = trierVehiculesDisponiblesParCapaciteDesc(vehicules, placesRestantes);
+
+                        for (Integer vehiculeId : vehiculesDispoParCapacite) {
+                            if (reste <= 0) break;
+
+                            int libre = placesRestantes.get(vehiculeId);
+                            int qte = Math.min(reste, libre);
+
+                            assignerFraction(assignationsPassage, placesRestantes, vehiculeId, r, qte);
+                            assignationDao.insert(new Assignation(vehiculeId, r.getId(), qte, r.isDecalee()));
+
+                            reste -= qte;
+                        }
+                    }
+
+                    // ÉTAPE 3 : si reliquat, reporter au groupe suivant
+                    if (reste > 0) {
+                        Reservation reliquat = new Reservation();
+                        reliquat.setId(r.getId());  // IMPORTANT: garder le même ID (qui existe en base)
+                        reliquat.setNbPassager(reste);
+                        reliquat.setIdClient(r.getIdClient());
+                        reliquat.setDateArrivee(r.getDateArrivee());
+                        reliquat.setIdLieu(r.getIdLieu());
+                        reliquat.setNomLieu(r.getNomLieu());
+                        reliquat.setDecalee(true);
+                        encoreNonAssignees.add(reliquat);
                     }
                 }
 
-                // Calculer les trajets de ce passage
-                creerTrajetsPourVol(heureDepartEffective, assignationsPassage, vehicules, vitesseMoyenne, vehiculeHeureRetour, trajets, heureDepart);
+                // AGRÉGER les assignations de ce passage au total du groupe
+                for (Map.Entry<Integer, List<ReservationAffectee>> entryPassage : assignationsPassage.entrySet()) {
+                    Integer vehiculeId = entryPassage.getKey();
+                    List<ReservationAffectee> fractions = entryPassage.getValue();
+
+                    if (!assignationsPassageAgregees.containsKey(vehiculeId)) {
+                        assignationsPassageAgregees.put(vehiculeId, new ArrayList<>());
+                    }
+                    assignationsPassageAgregees.get(vehiculeId).addAll(fractions);
+                }
 
                 // Incrémenter le compteur de trajets par véhicule
                 for (Integer vehiculeId : assignationsPassage.keySet()) {
@@ -263,6 +359,9 @@ public class PlanningDao {
                 heureDepartEffective = plusProchaineDisponibilite;
                 nonAssigneesGroupe = encoreNonAssignees;
             }
+
+            // CRÉER UN SEUL TRAJET PAR VÉHICULE avec toutes les fractions du groupe
+            creerTrajetsPourVol(heureDepart, assignationsPassageAgregees, vehicules, vitesseMoyenne, vehiculeHeureRetour, trajets, heureDepart);
         }
 
         // ÉTAPE 4 : Les réservations encore en attente après le DERNIER groupe
@@ -288,26 +387,70 @@ public class PlanningDao {
         return placesRestantes;
     }
 
-    private void assignerReservation(
-            Map<Integer, List<Reservation>> assignationsVol,
-            Map<Integer, Integer> placesRestantes,
-            Integer vehiculeChoisiId,
-            Reservation reservation,
-            int nbPassagers) {
-        if (!assignationsVol.containsKey(vehiculeChoisiId)) {
-            assignationsVol.put(vehiculeChoisiId, new ArrayList<>());
+    /**
+     * Retourne les vehicules disponibles tries par capacite totale decroissante.
+     * En cas d'egalite de capacite, on priorise le plus de places restantes puis l'id.
+     */
+    private List<Integer> trierVehiculesDisponiblesParCapaciteDesc(List<Vehicule> vehicules, Map<Integer, Integer> placesRestantes) {
+        List<Vehicule> vehiculesDisponibles = new ArrayList<>();
+        for (Vehicule v : vehicules) {
+            Integer places = placesRestantes.get(v.getId());
+            if (places != null && places > 0) {
+                vehiculesDisponibles.add(v);
+            }
         }
-        assignationsVol.get(vehiculeChoisiId).add(reservation);
-        placesRestantes.put(vehiculeChoisiId, placesRestantes.get(vehiculeChoisiId) - nbPassagers);
+
+        vehiculesDisponibles.sort((v1, v2) -> {
+            int cmpCapacite = Integer.compare(v2.getNbrPlace(), v1.getNbrPlace());
+            if (cmpCapacite != 0) return cmpCapacite;
+
+            int cmpPlacesRestantes = Integer.compare(
+                    placesRestantes.get(v2.getId()),
+                    placesRestantes.get(v1.getId())
+            );
+            if (cmpPlacesRestantes != 0) return cmpPlacesRestantes;
+
+            return Integer.compare(v1.getId(), v2.getId());
+        });
+
+        List<Integer> ids = new ArrayList<>();
+        for (Vehicule v : vehiculesDisponibles) {
+            ids.add(v.getId());
+        }
+        return ids;
     }
 
-    private void creerTrajetsPourVol(String heureVol, Map<Integer, List<Reservation>> assignationsVol, List<Vehicule> vehicules, double vitesseMoyenne, Map<Integer, String> vehiculeHeureRetour, List<Map<String, Object>> trajets, String groupeHeure) {
-        for (Map.Entry<Integer, List<Reservation>> assignation : assignationsVol.entrySet()) {
+private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationAffectee>> assignationsVol, List<Vehicule> vehicules, double vitesseMoyenne, Map<Integer, String> vehiculeHeureRetour, List<Map<String, Object>> trajets, String groupeHeure) {
+        for (Map.Entry<Integer, List<ReservationAffectee>> assignation : assignationsVol.entrySet()) {
             int vehiculeId = assignation.getKey();
-            List<Reservation> reservationsAssignees = assignation.getValue();
+            List<ReservationAffectee> fractionsAssignees = assignation.getValue();
+
+            // Extraire les réservations de base pour le calcul de distance
+            List<Reservation> reservationsForDistance = new ArrayList<>();
+            Map<Integer, Integer> qteParReservation = new HashMap<>();
+            List<Map<String, Object>> detailsFractions = new ArrayList<>();  // Pour JSP
+
+            for (ReservationAffectee fraction : fractionsAssignees) {
+                Reservation res = fraction.getReservation();
+                reservationsForDistance.add(res);
+                int idRes = res.getId();
+                int currentQte = qteParReservation.getOrDefault(idRes, 0);
+                qteParReservation.put(idRes, currentQte + fraction.getNbPassagerAffecte());
+
+                // Créer un objet simple pour le JSP avec les infos de la fraction
+                Map<String, Object> detailFraction = new LinkedHashMap<>();
+                detailFraction.put("id", idRes);
+                detailFraction.put("idClient", res.getIdClient());
+                detailFraction.put("nomLieu", res.getNomLieu());
+                detailFraction.put("dateArrivee", res.getDateArrivee());
+                detailFraction.put("decalee", res.isDecalee());
+                detailFraction.put("nbPassagerAffecte", fraction.getNbPassagerAffecte());
+                detailFraction.put("nbPassagerOriginal", res.getNbPassager());
+                detailsFractions.add(detailFraction);
+            }
 
             Vehicule v = trouverVehiculeParId(vehicules, vehiculeId);
-            Map<String, Object> infosTrajet = calculerInfosTrajet(reservationsAssignees);
+            Map<String, Object> infosTrajet = calculerInfosTrajet(reservationsForDistance);
 
             double distanceTotale = (Double) infosTrajet.get("distanceTotale");
             List<String> ordreTrajet = (List<String>) infosTrajet.get("ordreTrajet");
@@ -317,7 +460,8 @@ public class PlanningDao {
 
             Map<String, Object> trajet = new LinkedHashMap<>();
             trajet.put("vehicule", v);
-            trajet.put("reservations", reservationsAssignees);
+            trajet.put("detailsFractions", detailsFractions);  // Pour JSP - liste simple d'objets Map
+            trajet.put("qteParReservation", qteParReservation);  // Pour affichage en JSP
             trajet.put("distanceTotale", distanceTotale);
             trajet.put("ordreTrajet", ordreTrajet);
             trajet.put("heureDepart", heureVol);
@@ -354,7 +498,7 @@ public class PlanningDao {
      * Cherche un véhicule déjà utilisé dans ce vol avec assez de places restantes.
      */
     private Integer chercherVehiculeDejaUtilise(
-            Map<Integer, List<Reservation>> assignationsVol,
+            Map<Integer, List<ReservationAffectee>> assignationsVol,
             Map<Integer, Integer> placesRestantes,
             int nbPassagers,
             List<Vehicule> vehicules,
@@ -375,7 +519,7 @@ public class PlanningDao {
      * Cherche un nouveau véhicule pas encore utilisé dans ce vol avec assez de places.
      */
     private Integer chercherNouveauVehicule(
-            Map<Integer, List<Reservation>> assignationsVol,
+            Map<Integer, List<ReservationAffectee>> assignationsVol,
             Map<Integer, Integer> placesRestantes,
             int nbPassagers,
             List<Vehicule> vehicules,

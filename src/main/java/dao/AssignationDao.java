@@ -35,19 +35,21 @@ public class AssignationDao {
 
     /**
      * Insère une nouvelle assignation en base.
+     * La réservation peut être fractionnée : nbPassagerAffecte != reservation.nbPassager
      *
      * @param assignation l'assignation à insérer
      * @throws SQLException en cas d'erreur base de données
      */
     public void insert(Assignation assignation) throws SQLException {
-        String sql = "INSERT INTO assignation (idVehicule, idReservation, decalee) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO assignation (idVehicule, idReservation, nbPassagerAffecte, decalee) VALUES (?, ?, ?, ?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, assignation.getIdVehicule());
             stmt.setInt(2, assignation.getIdReservation());
-            stmt.setBoolean(3, assignation.isDecalee());
+            stmt.setInt(3, assignation.getNbPassagerAffecte());
+            stmt.setBoolean(4, assignation.isDecalee());
             stmt.executeUpdate();
         }
     }
@@ -61,7 +63,7 @@ public class AssignationDao {
      */
     public List<Assignation> findByDate(String date) throws SQLException {
         List<Assignation> assignations = new ArrayList<>();
-        String sql = "SELECT a.id, a.idVehicule, a.idReservation, a.decalee, a.datePlanification " +
+        String sql = "SELECT a.id, a.idVehicule, a.idReservation, a.nbPassagerAffecte, a.decalee, a.datePlanification " +
                      "FROM assignation a " +
                      "JOIN reservation r ON a.idReservation = r.id " +
                      "WHERE DATE(r.dateArrivee) = ? " +
@@ -81,6 +83,7 @@ public class AssignationDao {
                     a.setId(rs.getInt("id"));
                     a.setIdVehicule(rs.getInt("idVehicule"));
                     a.setIdReservation(rs.getInt("idReservation"));
+                    a.setNbPassagerAffecte(rs.getInt("nbPassagerAffecte"));
                     a.setDecalee(rs.getBoolean("decalee"));
                     Timestamp ts = rs.getTimestamp("datePlanification");
                     a.setDatePlanification(ts != null ? sdf.format(ts) : null);
@@ -100,7 +103,7 @@ public class AssignationDao {
      * @throws SQLException en cas d'erreur base de données
      */
     public Assignation findById(int id) throws SQLException {
-        String sql = "SELECT id, idVehicule, idReservation, decalee, datePlanification " +
+        String sql = "SELECT id, idVehicule, idReservation, nbPassagerAffecte, decalee, datePlanification " +
                      "FROM assignation WHERE id = ?";
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -116,6 +119,7 @@ public class AssignationDao {
                     a.setId(rs.getInt("id"));
                     a.setIdVehicule(rs.getInt("idVehicule"));
                     a.setIdReservation(rs.getInt("idReservation"));
+                    a.setNbPassagerAffecte(rs.getInt("nbPassagerAffecte"));
                     a.setDecalee(rs.getBoolean("decalee"));
                     Timestamp ts = rs.getTimestamp("datePlanification");
                     a.setDatePlanification(ts != null ? sdf.format(ts) : null);
@@ -135,7 +139,7 @@ public class AssignationDao {
      */
     public List<Assignation> findAll() throws SQLException {
         List<Assignation> assignations = new ArrayList<>();
-        String sql = "SELECT id, idVehicule, idReservation, decalee, datePlanification " +
+        String sql = "SELECT id, idVehicule, idReservation, nbPassagerAffecte, decalee, datePlanification " +
                      "FROM assignation ORDER BY id ASC";
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -149,6 +153,7 @@ public class AssignationDao {
                 a.setId(rs.getInt("id"));
                 a.setIdVehicule(rs.getInt("idVehicule"));
                 a.setIdReservation(rs.getInt("idReservation"));
+                a.setNbPassagerAffecte(rs.getInt("nbPassagerAffecte"));
                 a.setDecalee(rs.getBoolean("decalee"));
                 Timestamp ts = rs.getTimestamp("datePlanification");
                 a.setDatePlanification(ts != null ? sdf.format(ts) : null);
@@ -166,15 +171,16 @@ public class AssignationDao {
      * @throws SQLException en cas d'erreur base de données
      */
     public void update(Assignation assignation) throws SQLException {
-        String sql = "UPDATE assignation SET idVehicule = ?, idReservation = ?, decalee = ? WHERE id = ?";
+        String sql = "UPDATE assignation SET idVehicule = ?, idReservation = ?, nbPassagerAffecte = ?, decalee = ? WHERE id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, assignation.getIdVehicule());
             stmt.setInt(2, assignation.getIdReservation());
-            stmt.setBoolean(3, assignation.isDecalee());
-            stmt.setInt(4, assignation.getId());
+            stmt.setInt(3, assignation.getNbPassagerAffecte());
+            stmt.setBoolean(4, assignation.isDecalee());
+            stmt.setInt(5, assignation.getId());
             stmt.executeUpdate();
         }
     }
