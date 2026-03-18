@@ -83,6 +83,8 @@
                             <% List<Reservation> groupe = (List<Reservation>) ligne.get("reservations");
                                for (Reservation r : groupe) { %>
                                 <div class="reservation-item">
+                                    <span class="text-muted">#<%= r.getId() %></span>
+                                    <span class="text-muted">Client: <%= r.getIdClient() %></span>
                                     <span class="badge badge-blue"><%= r.getNomLieu() %></span>
                                     <span class="badge badge-purple"><%= r.getNbPassager() %> pass.</span>
                                     <span class="text-muted"><%= r.getDateArrivee().substring(11) %></span>
