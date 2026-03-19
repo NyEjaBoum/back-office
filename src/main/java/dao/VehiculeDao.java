@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -15,7 +16,7 @@ public class VehiculeDao {
 
     public List<Vehicule> findAll() throws SQLException {
         List<Vehicule> list = new ArrayList<>();
-        String sql = "SELECT id, reference, nbrPlace, typeCarburant FROM vehicule ORDER BY id DESC";
+        String sql = "SELECT id, reference, nbrPlace, typeCarburant, heureDisponibilite FROM vehicule ORDER BY id DESC";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
@@ -27,6 +28,8 @@ public class VehiculeDao {
                 v.setReference(rs.getString("reference"));
                 v.setNbrPlace(rs.getInt("nbrPlace"));
                 v.setTypeCarburant(rs.getString("typeCarburant"));
+                java.sql.Timestamp ts = rs.getTimestamp("heureDisponibilite");
+                v.setHeureDisponibilite(ts != null ? new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(ts) : null);
                 list.add(v);
             }
         }
@@ -34,7 +37,7 @@ public class VehiculeDao {
     }
 
     public Vehicule findById(int id) throws SQLException {
-        String sql = "SELECT id, reference, nbrPlace, typeCarburant FROM vehicule WHERE id = ?";
+        String sql = "SELECT id, reference, nbrPlace, typeCarburant, heureDisponibilite FROM vehicule WHERE id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -47,6 +50,8 @@ public class VehiculeDao {
                     v.setReference(rs.getString("reference"));
                     v.setNbrPlace(rs.getInt("nbrPlace"));
                     v.setTypeCarburant(rs.getString("typeCarburant"));
+                    java.sql.Timestamp ts = rs.getTimestamp("heureDisponibilite");
+                    v.setHeureDisponibilite(ts != null ? new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(ts) : null);
                     return v;
                 }
             }
@@ -55,26 +60,36 @@ public class VehiculeDao {
     }
 
     public void insert(Vehicule v) throws SQLException {
-        String sql = "INSERT INTO vehicule (reference, nbrPlace, typeCarburant) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO vehicule (reference, nbrPlace, typeCarburant, heureDisponibilite) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, v.getReference());
             stmt.setInt(2, v.getNbrPlace());
             stmt.setString(3, v.getTypeCarburant());
+            if (v.getHeureDisponibilite() != null) {
+                stmt.setTimestamp(4, java.sql.Timestamp.valueOf(v.getHeureDisponibilite()));
+            } else {
+                stmt.setNull(4, java.sql.Types.TIMESTAMP);
+            }
             stmt.executeUpdate();
         }
     }
 
     public void update(Vehicule v) throws SQLException {
-        String sql = "UPDATE vehicule SET reference = ?, nbrPlace = ?, typeCarburant = ? WHERE id = ?";
+        String sql = "UPDATE vehicule SET reference = ?, nbrPlace = ?, typeCarburant = ?, heureDisponibilite = ? WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, v.getReference());
             stmt.setInt(2, v.getNbrPlace());
             stmt.setString(3, v.getTypeCarburant());
-            stmt.setInt(4, v.getId());
+            if (v.getHeureDisponibilite() != null) {
+                stmt.setTimestamp(4, java.sql.Timestamp.valueOf(v.getHeureDisponibilite()));
+            } else {
+                stmt.setNull(4, java.sql.Types.TIMESTAMP);
+            }
+            stmt.setInt(5, v.getId());
             stmt.executeUpdate();
         }
     }
