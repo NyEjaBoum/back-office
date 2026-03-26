@@ -5,6 +5,7 @@ public class Vehicule {
     private String reference;
     private int nbrPlace;
     private String typeCarburant; // D, ES, H
+    private String heureDisponibilite; // Format "yyyy-MM-dd HH:mm:ss"
 
     public Vehicule() {}
 
@@ -47,9 +48,17 @@ public class Vehicule {
         this.typeCarburant = typeCarburant;
     }
 
+    public String getHeureDisponibilite() {
+        return heureDisponibilite;
+    }
+
+    public void setHeureDisponibilite(String heureDisponibilite) {
+        this.heureDisponibilite = heureDisponibilite;
+    }
+
     @Override
     public String toString() {
         return "Vehicule{id=" + id + ", reference='" + reference + "', nbrPlace=" + nbrPlace +
-               ", typeCarburant='" + typeCarburant + "'}";
+               ", typeCarburant='" + typeCarburant + "', heureDisponibilite='" + heureDisponibilite + "'}";
     }
 }

@@ -41,14 +41,14 @@ INSERT INTO dev.lieu (id, code, libelle, idTypeLieu) VALUES
 
 -- ==================== PARAMETRE ====================
 INSERT INTO dev.parametre (id, vitesseMoyenne, tempsAttente) VALUES
-    (1, 40, 30);
+    (1, 50, 30);
 
 -- ==================== VEHICULES ====================
---   V1 : 8 places, Diesel
---   V2 : 3 places, Essence
-INSERT INTO dev.vehicule (id, reference, nbrPlace, typeCarburant) VALUES
-    (1, 'V1', 8, 'D'),
-    (2, 'V2', 3, 'ES');
+--   V1 : 8 places, Diesel, dispo dès 08:00
+--   V2 : 3 places, Essence, dispo dès 08:00
+INSERT INTO dev.vehicule (id, reference, nbrPlace, typeCarburant, heureDisponibilite) VALUES
+    (1, 'V1', 8, 'D',  '2026-04-15 08:00:00'),
+    (2, 'V2', 3, 'ES', '2026-04-15 08:00:00');
 
 -- ==================== DISTANCES ====================
 INSERT INTO dev.distance ("from", "to", km) VALUES

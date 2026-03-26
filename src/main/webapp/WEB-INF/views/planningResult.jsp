@@ -14,6 +14,8 @@
 <body>
     <nav class="nav-bar">
         <span class="nav-brand">Back Office</span>
+        <%-- <span class="nav-brand">ETU003383    ETU003389   ETU3657</span> --%>
+        <p class="text-muted" style="font-size: x-large">ETU003383 - ETU003389 - ETU003657</p>
         <a href="${pageContext.request.contextPath}/reservations">Reservations</a>
         <a href="${pageContext.request.contextPath}/vehicules">Vehicules</a>
         <a href="${pageContext.request.contextPath}/planning" class="active">Planning</a>

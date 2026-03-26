@@ -48,3 +48,11 @@ WHERE a.idReservation = r.id
 
 ALTER TABLE prod.assignation ALTER COLUMN nbPassagerAffecte SET NOT NULL;
 ALTER TABLE prod.assignation ADD CONSTRAINT assignation_nbpassageraffe_check_prod CHECK (nbPassagerAffecte > 0);
+
+
+ALTER TABLE dev.vehicule ADD COLUMN heureDisponibilite TIME;
+
+-- Exemple de données
+UPDATE dev.vehicule SET heureDisponibilite = '08:00:00' WHERE id = 1;
+UPDATE dev.vehicule SET heureDisponibilite = '10:00:00' WHERE id = 2;
+UPDATE dev.vehicule SET heureDisponibilite = '14:00:00' WHERE id = 3;

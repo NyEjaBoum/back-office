@@ -254,7 +254,29 @@ public class PlanningDao {
             // Calculer l'heure de fin du groupe
             String heureFinGroupe = ajouterMinutes(heureDepart, tempsAttente);
             String heureDepartEffective = heureDepart;
+            String heureDepartTrajetGroupe = heureDepart;
             List<Reservation> nonAssigneesGroupe = new ArrayList<>(reservationsGroupe);
+
+            // Sprint 8: s'il existe des reservations decalees, attendre le premier retour
+            // de vehicule dans la fenetre du groupe pour les prioriser.
+            boolean contientReservationsDecalees = false;
+            for (Reservation reservation : nonAssigneesGroupe) {
+                if (reservation.isDecalee()) {
+                    contientReservationsDecalees = true;
+                    break;
+                }
+            }
+            if (contientReservationsDecalees) {
+                String premiereDisponibilite = trouverProchaineDisponibiliteDansFenetre(
+                        vehiculeHeureRetour,
+                        heureDepart,
+                        heureFinGroupe
+                );
+                if (premiereDisponibilite != null) {
+                    heureDepartEffective = premiereDisponibilite;
+                    heureDepartTrajetGroupe = premiereDisponibilite;
+                }
+            }
 
             // AGRÉGATION des assignations sur toutes les itérations de la boucle while
             Map<Integer, List<ReservationAffectee>> assignationsPassageAgregees = new LinkedHashMap<>();
@@ -265,48 +287,102 @@ public class PlanningDao {
                 Map<Integer, List<ReservationAffectee>> assignationsPassage = new LinkedHashMap<>();
                 List<Reservation> encoreNonAssignees = new ArrayList<>();
 
+                // Traiter les réservations avec assignation dynamique
+                // Map pour suivre combien de passagers restent pour chaque réservation
+                Map<Integer, Integer> passagersRestants = new LinkedHashMap<>();
                 for (Reservation r : nonAssigneesGroupe) {
-                    int reste = r.getNbPassager();
+                    passagersRestants.put(r.getId(), r.getNbPassager());
+                }
 
-                    // Boucle : tant qu'il reste des passagers, on cherche un véhicule
-                    // Règle : tant qu'une voiture a des places, on la remplit avant d'en changer
-                    while (reste > 0) {
-                        // 1. Chercher d'abord un véhicule DÉJÀ UTILISÉ avec des places restantes
-                        Integer vehiculeChoisi = chercherVehiculeDejaUtilise(
-                            assignationsPassage, placesRestantes, reste, vehicules, trajetsParVehicule);
+                // Si une réservation ne peut pas être assignée d'un seul bloc,
+                // on reste en "mode fractionnement" pour toute la réservation
+                // (on affecte alors du plus grand véhicule libre au plus petit).
+                Map<Integer, Boolean> fractionnementParReservation = new HashMap<>();
 
-                        // 2. Si aucun véhicule déjà utilisé, chercher un NOUVEAU véhicule
+                while (!passagersRestants.isEmpty()) {
+                    // Traiter les réservations dans l'ordre priorisé du groupe
+                    // (triées au préalable par nbPassager DESC), et terminer une
+                    // réservation avant de passer à la suivante.
+                    Integer idReservationCourante = trouverProchaineReservationDansOrdre(nonAssigneesGroupe, passagersRestants);
+                    if (idReservationCourante == null) break;
+
+                    Reservation reservationCourante = trouverReservationParId(nonAssigneesGroupe, idReservationCourante);
+                    int reste = passagersRestants.get(idReservationCourante);
+
+                    // Chercher un véhicule pour cette réservation selon les règles Sprint 7 :
+                    // 1) essayer une assignation complète sur un seul véhicule (si possible)
+                    // 2) sinon fractionner du plus grand au plus petit, et garder ce mode
+                    boolean enFractionnement = fractionnementParReservation.getOrDefault(idReservationCourante, false);
+                    Integer vehiculeChoisi;
+
+                    if (!enFractionnement) {
+                        vehiculeChoisi = choisirVehiculePourReservation(placesRestantes, reste, vehicules, trajetsParVehicule, false);
                         if (vehiculeChoisi == null) {
-                            vehiculeChoisi = chercherNouveauVehicule(
-                                assignationsPassage, placesRestantes, reste, vehicules, trajetsParVehicule);
+                            fractionnementParReservation.put(idReservationCourante, true);
+                            enFractionnement = true;
+                            vehiculeChoisi = choisirVehiculePourReservation(placesRestantes, reste, vehicules, trajetsParVehicule, true);
                         }
-
-                        if (vehiculeChoisi == null) {
-                            // Plus de véhicule disponible, on sort de la boucle
-                            break;
-                        }
-
-                        int placesLibres = placesRestantes.get(vehiculeChoisi);
-                        int qte = Math.min(reste, placesLibres);
-
-                        assignerFraction(assignationsPassage, placesRestantes, vehiculeChoisi, r, qte);
-                        assignationDao.insert(new Assignation(vehiculeChoisi, r.getId(), qte, r.isDecalee()));
-
-                        reste -= qte;
+                    } else {
+                        vehiculeChoisi = choisirVehiculePourReservation(placesRestantes, reste, vehicules, trajetsParVehicule, true);
                     }
 
-                    // Si reliquat, reporter au groupe suivant
-                    if (reste > 0) {
+                    if (vehiculeChoisi == null) {
+                        // Plus de véhicule disponible → reliquat
                         Reservation reliquat = new Reservation();
-                        reliquat.setId(r.getId());  // IMPORTANT: garder le même ID (qui existe en base)
+                        reliquat.setId(reservationCourante.getId());
                         reliquat.setNbPassager(reste);
-                        reliquat.setIdClient(r.getIdClient());
-                        reliquat.setDateArrivee(r.getDateArrivee());
-                        reliquat.setIdLieu(r.getIdLieu());
-                        reliquat.setNomLieu(r.getNomLieu());
+                        reliquat.setIdClient(reservationCourante.getIdClient());
+                        reliquat.setDateArrivee(reservationCourante.getDateArrivee());
+                        reliquat.setIdLieu(reservationCourante.getIdLieu());
+                        reliquat.setNomLieu(reservationCourante.getNomLieu());
                         reliquat.setDecalee(true);
                         encoreNonAssignees.add(reliquat);
+                        passagersRestants.remove(idReservationCourante);
+                        continue;
                     }
+
+                    int placesLibres = placesRestantes.get(vehiculeChoisi);
+                    int qte = Math.min(reste, placesLibres);
+
+                    assignerFraction(assignationsPassage, placesRestantes, vehiculeChoisi, reservationCourante, qte);
+                    assignationDao.insert(new Assignation(vehiculeChoisi, reservationCourante.getId(), qte, reservationCourante.isDecalee()));
+
+                    reste -= qte;
+
+                    // Mettre à jour ou supprimer de la map
+                    if (reste == 0) {
+                        passagersRestants.remove(idReservationCourante);
+                    } else {
+                        passagersRestants.put(idReservationCourante, reste);
+                    }
+
+                    // Si le véhicule a encore des places, on complète avec la réservation la plus proche
+                    // (minimise l'écart de remplissage) pour stabiliser la répartition.
+                    while (!passagersRestants.isEmpty() && placesRestantes.get(vehiculeChoisi) != null && placesRestantes.get(vehiculeChoisi) > 0) {
+                        int placesDispo = placesRestantes.get(vehiculeChoisi);
+                        Integer idPlusProche = trouverReservationLaPlusProche(passagersRestants, placesDispo);
+                        if (idPlusProche == null) break;
+
+                        Reservation rProche = trouverReservationParId(nonAssigneesGroupe, idPlusProche);
+                        if (rProche == null) {
+                            passagersRestants.remove(idPlusProche);
+                            continue;
+                        }
+
+                        int resteProche = passagersRestants.get(idPlusProche);
+                        int qteProche = Math.min(resteProche, placesDispo);
+
+                        assignerFraction(assignationsPassage, placesRestantes, vehiculeChoisi, rProche, qteProche);
+                        assignationDao.insert(new Assignation(vehiculeChoisi, rProche.getId(), qteProche, rProche.isDecalee()));
+
+                        resteProche -= qteProche;
+                        if (resteProche == 0) {
+                            passagersRestants.remove(idPlusProche);
+                        } else {
+                            passagersRestants.put(idPlusProche, resteProche);
+                        }
+                    }
+
                 }
 
                 // AGRÉGER les assignations de ce passage au total du groupe
@@ -357,7 +433,7 @@ public class PlanningDao {
             }
 
             // CRÉER UN SEUL TRAJET PAR VÉHICULE avec toutes les fractions du groupe
-            creerTrajetsPourVol(heureDepart, assignationsPassageAgregees, vehicules, vitesseMoyenne, vehiculeHeureRetour, trajets, heureDepart);
+            creerTrajetsPourVol(heureDepartTrajetGroupe, assignationsPassageAgregees, vehicules, vitesseMoyenne, vehiculeHeureRetour, trajets, heureDepart);
         }
 
         // ÉTAPE 4 : Les réservations encore en attente après le DERNIER groupe
@@ -375,8 +451,15 @@ public class PlanningDao {
         Map<Integer, Integer> placesRestantes = new HashMap<>();
         for (Vehicule v : vehicules) {
             String heureRetourV = vehiculeHeureRetour.get(v.getId());
-            boolean disponible = (heureRetourV == null || heureRetourV.compareTo(heureVol) <= 0);
-            if (disponible) {
+            String heureDispoV = v.getHeureDisponibilite();
+
+            // Véhicule disponible si :
+            // 1. heureDisponibilite <= heureVol (ou null = toujours dispo)
+            // 2. ET heureRetour <= heureVol (ou null = pas encore utilisé)
+            boolean dispoParHeure = (heureDispoV == null || heureDispoV.compareTo(heureVol) <= 0);
+            boolean dispoParRetour = (heureRetourV == null || heureRetourV.compareTo(heureVol) <= 0);
+
+            if (dispoParHeure && dispoParRetour) {
                 placesRestantes.put(v.getId(), v.getNbrPlace());
             }
         }
@@ -488,6 +571,118 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
         long dureeMs = (long) ((distanceTotale / vitesseMoyenne) * 3600 * 1000);
         return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
             .format(new java.util.Date(java.sql.Timestamp.valueOf(heureDepart).getTime() + dureeMs));
+    }
+
+    private String trouverProchaineDisponibiliteDansFenetre(
+            Map<Integer, String> vehiculeHeureRetour,
+            String heureDebut,
+            String heureFin) {
+        String plusProchaineDisponibilite = null;
+        for (String heureRetour : vehiculeHeureRetour.values()) {
+            if (heureRetour.compareTo(heureDebut) > 0 && heureRetour.compareTo(heureFin) <= 0) {
+                if (plusProchaineDisponibilite == null || heureRetour.compareTo(plusProchaineDisponibilite) < 0) {
+                    plusProchaineDisponibilite = heureRetour;
+                }
+            }
+        }
+        return plusProchaineDisponibilite;
+    }
+
+    /**
+     * Trouve l'ID de la réservation avec le plus de passagers restants.
+     */
+    private Integer trouverReservationAvecPlusDePassagers(Map<Integer, Integer> passagersRestants) {
+        Integer idMax = null;
+        int max = 0;
+        for (Map.Entry<Integer, Integer> entry : passagersRestants.entrySet()) {
+            if (entry.getValue() > max) {
+                max = entry.getValue();
+                idMax = entry.getKey();
+            }
+        }
+        return idMax;
+    }
+
+    /**
+     * Trouve la prochaine réservation à traiter selon l'ordre déjà trié du groupe.
+     */
+    private Integer trouverProchaineReservationDansOrdre(
+            List<Reservation> reservationsTriees,
+            Map<Integer, Integer> passagersRestants) {
+        for (Reservation reservation : reservationsTriees) {
+            Integer reste = passagersRestants.get(reservation.getId());
+            if (reste != null && reste > 0) {
+                return reservation.getId();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Choisit un véhicule pour une réservation.
+     * - modeFractionnement=false : on exige un véhicule suffisant (places >= nbPassagers)
+     * - modeFractionnement=true  : on prend le véhicule avec le plus de places restantes
+     */
+    private Integer choisirVehiculePourReservation(
+            Map<Integer, Integer> placesRestantes,
+            int nbPassagers,
+            List<Vehicule> vehicules,
+            Map<Integer, Integer> trajetsParVehicule,
+            boolean modeFractionnement) {
+
+        List<Vehicule> candidats = new ArrayList<>();
+        for (Vehicule v : vehicules) {
+            Integer p = placesRestantes.get(v.getId());
+            if (p != null && p > 0) {
+                candidats.add(v);
+            }
+        }
+
+        if (candidats.isEmpty()) return null;
+
+        if (modeFractionnement) {
+            trierParPlacesRestantesDesc(candidats, placesRestantes, trajetsParVehicule);
+            return candidats.get(0).getId();
+        }
+
+        List<Vehicule> suffisants = new ArrayList<>();
+        for (Vehicule v : candidats) {
+            if (placesRestantes.get(v.getId()) >= nbPassagers) {
+                suffisants.add(v);
+            }
+        }
+
+        if (suffisants.isEmpty()) return null;
+        return choisirMeilleurVehicule(suffisants, placesRestantes, trajetsParVehicule);
+    }
+
+    /**
+     * Trouve l'ID de la réservation la plus proche d'un nombre de places.
+     * Critère : écart minimal entre nbPassagersRestants et placesDisponibles.
+     */
+    private Integer trouverReservationLaPlusProche(Map<Integer, Integer> passagersRestants, int placesDisponibles) {
+        Integer idPlusProche = null;
+        int ecartMin = Integer.MAX_VALUE;
+
+        for (Map.Entry<Integer, Integer> entry : passagersRestants.entrySet()) {
+            int nbPassagers = entry.getValue();
+            int ecart = Math.abs(nbPassagers - placesDisponibles);
+            if (ecart < ecartMin) {
+                ecartMin = ecart;
+                idPlusProche = entry.getKey();
+            }
+        }
+        return idPlusProche;
+    }
+
+    /**
+     * Trouve une réservation dans une liste par son ID.
+     */
+    private Reservation trouverReservationParId(List<Reservation> reservations, int id) {
+        for (Reservation r : reservations) {
+            if (r.getId() == id) return r;
+        }
+        return null;
     }
 
     /**
