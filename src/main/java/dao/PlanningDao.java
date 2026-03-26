@@ -248,8 +248,8 @@ public class PlanningDao {
             reservationsGroupe.addAll(reservationsEnAttente);
             reservationsEnAttente = new ArrayList<>();
 
-            // Trier par nbPassager DESC (règle existante conservée)
-            trierParNbPassagerDesc(reservationsGroupe);
+            // Sprint 8: Trier avec priorité aux réservations décalées, puis par nbPassager DESC
+            trierAvecPrioriteDecalees(reservationsGroupe);
 
             // Calculer l'heure de fin du groupe
             String heureFinGroupe = ajouterMinutes(heureDepart, tempsAttente);
@@ -427,9 +427,15 @@ public class PlanningDao {
                     break;
                 }
 
-                // Un véhicule revient dans la fenêtre → on retente avec l'heure ajustée
+                // Sprint 8: Un véhicule revient → nouveau regroupement avec nouveau temps d'attente
                 heureDepartEffective = plusProchaineDisponibilite;
+                // La fenêtre s'étend à partir de l'heure de retour du véhicule
+                heureFinGroupe = ajouterMinutes(plusProchaineDisponibilite, tempsAttente);
+
+                // Les réservations décalées sont déjà dans encoreNonAssignees
+                // Elles seront priorisées grâce au tri trierAvecPrioriteDecalees
                 nonAssigneesGroupe = encoreNonAssignees;
+                trierAvecPrioriteDecalees(nonAssigneesGroupe);
             }
 
             // CRÉER UN SEUL TRAJET PAR VÉHICULE avec toutes les fractions du groupe
@@ -924,6 +930,37 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
                     Reservation tmp = reservations.get(j);
                     reservations.set(j, reservations.get(j + 1));
                     reservations.set(j + 1, tmp);
+                }
+            }
+        }
+    }
+
+    /**
+     * Sprint 8: Tri avec priorité aux réservations décalées.
+     * 1. Réservations décalées en premier (par nbPassager DESC)
+     * 2. Puis réservations normales (par nbPassager DESC)
+     */
+    private void trierAvecPrioriteDecalees(List<Reservation> reservations) {
+        for (int i = 0; i < reservations.size() - 1; i++) {
+            for (int j = 0; j < reservations.size() - i - 1; j++) {
+                Reservation r1 = reservations.get(j);
+                Reservation r2 = reservations.get(j + 1);
+
+                boolean swap = false;
+
+                // Les décalées sont prioritaires
+                if (!r1.isDecalee() && r2.isDecalee()) {
+                    swap = true;
+                } else if (r1.isDecalee() == r2.isDecalee()) {
+                    // Même statut décalée : trier par nbPassager DESC
+                    if (r1.getNbPassager() < r2.getNbPassager()) {
+                        swap = true;
+                    }
+                }
+
+                if (swap) {
+                    reservations.set(j, r2);
+                    reservations.set(j + 1, r1);
                 }
             }
         }
