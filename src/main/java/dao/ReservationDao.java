@@ -155,33 +155,33 @@ public class ReservationDao {
     }
 
     /**
-     * Met à jour les clés des groupes : 
-     * - ancienne clé = première heure
-     * - nouvelle clé = dernière heure du groupe
+     * Met à jour les clés des groupes :
+     * - ancienne clé = première heure saisie
+     * - nouvelle clé = première heure (min) du groupe
      */
     private void mettreAJourHeuresGroupes(Map<String, List<Reservation>> vols) {
         Map<String, List<Reservation>> volsMisAJour = new LinkedHashMap<>();
-        
+
         for (List<Reservation> groupe : vols.values()) {
-            String dernierHeure = trouveDerniereHeure(groupe);
-            volsMisAJour.put(dernierHeure, groupe);
+            String premiereHeure = trouverPremiereHeure(groupe);
+            volsMisAJour.put(premiereHeure, groupe);
         }
-        
+
         vols.clear();
         vols.putAll(volsMisAJour);
     }
 
     /**
-     * Trouve l'heure de départ = dernière heure (max) du groupe
+     * Trouve la première heure (min) du groupe — c'est l'heure d'ancrage du regroupement.
      */
-    private String trouveDerniereHeure(List<Reservation> groupe) {
-        String derniere = groupe.get(0).getDateArrivee();
+    private String trouverPremiereHeure(List<Reservation> groupe) {
+        String premiere = groupe.get(0).getDateArrivee();
         for (Reservation r : groupe) {
-            if (r.getDateArrivee().compareTo(derniere) > 0) {
-                derniere = r.getDateArrivee();
+            if (r.getDateArrivee().compareTo(premiere) < 0) {
+                premiere = r.getDateArrivee();
             }
         }
-        return derniere;
+        return premiere;
     }
 
     private String trouverGroupeCompatible(Map<String, List<Reservation>> vols, String heureReservation, int tempsAttente) {

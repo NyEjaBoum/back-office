@@ -306,6 +306,18 @@ public class PlanningDao {
                 }
             }
 
+            // Absorber les groupes futurs dont l'heure tombe dans la fenêtre initiale/ajustée
+            for (int k = idxGroupe + 1; k < heuresGroupes.size(); k++) {
+                String cleGroupe = heuresGroupes.get(k);
+                if (cleGroupe.compareTo(heureFinGroupe) > 0) break;
+                List<Reservation> futurs = vols.get(cleGroupe);
+                if (futurs != null && !futurs.isEmpty()) {
+                    nonAssigneesGroupe.addAll(futurs);
+                    futurs.clear();
+                }
+            }
+            trierAvecPrioriteDecalees(nonAssigneesGroupe);
+
             // BOUCLE INTERNE AU GROUPE
             while (true) {
                 Map<Integer, Integer> placesRestantes = initialiserPlacesRestantes(vehicules, vehiculeHeureRetour, heureDepartEffective);
@@ -331,6 +343,18 @@ public class PlanningDao {
 
                     heureDepartEffective = prochaineDisponibilite;
                     heureFinGroupe = ajouterMinutes(heureDepartEffective, tempsAttente);
+
+                    // Absorber les groupes futurs dont l'heure tombe dans la nouvelle fenêtre
+                    for (int k = idxGroupe + 1; k < heuresGroupes.size(); k++) {
+                        String cleGroupe = heuresGroupes.get(k);
+                        if (cleGroupe.compareTo(heureFinGroupe) > 0) break;
+                        List<Reservation> futurs = vols.get(cleGroupe);
+                        if (futurs != null && !futurs.isEmpty()) {
+                            nonAssigneesGroupe.addAll(futurs);
+                            futurs.clear();
+                        }
+                    }
+
                     trierAvecPrioriteDecalees(nonAssigneesGroupe);
                     continue;
                 }
@@ -492,6 +516,17 @@ public class PlanningDao {
                 heureDepartEffective = plusProchaineDisponibilite;
                 // La fenêtre s'étend à partir de l'heure de retour du véhicule
                 heureFinGroupe = ajouterMinutes(plusProchaineDisponibilite, tempsAttente);
+
+                // Absorber les groupes futurs dont l'heure tombe dans la nouvelle fenêtre
+                for (int k = idxGroupe + 1; k < heuresGroupes.size(); k++) {
+                    String cleGroupe = heuresGroupes.get(k);
+                    if (cleGroupe.compareTo(heureFinGroupe) > 0) break;
+                    List<Reservation> futurs = vols.get(cleGroupe);
+                    if (futurs != null && !futurs.isEmpty()) {
+                        encoreNonAssignees.addAll(futurs);
+                        futurs.clear();
+                    }
+                }
 
                 // Les réservations décalées sont déjà dans encoreNonAssignees
                 // Elles seront priorisées grâce au tri trierAvecPrioriteDecalees
@@ -878,22 +913,12 @@ public class PlanningDao {
             List<Reservation> reservationsTriees,
             Map<Integer, Integer> passagersRestants,
             int placesDisponibles) {
-        boolean decaleeExiste = false;
-        for (Reservation r : reservationsTriees) {
-            Integer reste = passagersRestants.get(r.getId());
-            if (reste != null && reste > 0 && r.isDecalee()) {
-                decaleeExiste = true;
-                break;
-            }
-        }
-
         Integer idPlusProche = null;
         int ecartMin = Integer.MAX_VALUE;
 
         for (Map.Entry<Integer, Integer> entry : passagersRestants.entrySet()) {
             Reservation r = trouverReservationParId(reservationsTriees, entry.getKey());
             if (r == null) continue;
-            if (decaleeExiste && !r.isDecalee()) continue;
 
             int nbPassagers = entry.getValue();
             int ecart = Math.abs(nbPassagers - placesDisponibles);
