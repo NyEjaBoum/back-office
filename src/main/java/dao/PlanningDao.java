@@ -1187,8 +1187,7 @@ public class PlanningDao {
     /**
      * Sprint 8: Tri avec priorité stricte aux réservations décalées.
      * 1) Décalées d'abord
-     * 2) Puis ordre chronologique (dateArrivee ASC)
-     * 3) Puis nbPassager DESC (tie-break)
+     * 2) Puis par nbPassager DESC (du plus grand au plus petit)
      */
     private void trierAvecPrioriteDecalees(List<Reservation> reservations) {
         for (int i = 0; i < reservations.size() - 1; i++) {
@@ -1201,21 +1200,9 @@ public class PlanningDao {
                 if (!r1.isDecalee() && r2.isDecalee()) {
                     swap = true;
                 } else if (r1.isDecalee() == r2.isDecalee()) {
-                    String d1 = r1.getDateArrivee();
-                    String d2 = r2.getDateArrivee();
-                    if (d1 != null && d2 != null) {
-                        if (d1.compareTo(d2) > 0) {
-                            swap = true;
-                        } else if (d1.compareTo(d2) == 0) {
-                            if (r1.getNbPassager() < r2.getNbPassager()) {
-                                swap = true;
-                            }
-                        }
-                    } else {
-                        // fallback : trier par nbPassager DESC
-                        if (r1.getNbPassager() < r2.getNbPassager()) {
-                            swap = true;
-                        }
+                    // Même statut de décalage : trier par nbPassager DESC
+                    if (r1.getNbPassager() < r2.getNbPassager()) {
+                        swap = true;
                     }
                 }
 
