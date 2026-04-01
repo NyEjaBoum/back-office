@@ -240,25 +240,35 @@ public class PlanningDao {
         List<Reservation> reservationsEnAttente = new ArrayList<>();
 
         // ÉTAPE 3 : Parcourir TOUS les groupes horaires de la journée (triés par heure)
-        for (Map.Entry<String, List<Reservation>> entry : vols.entrySet()) {
-            String heureDepart = entry.getKey();
-            List<Reservation> reservationsGroupe = new ArrayList<>(entry.getValue());
+        List<String> heuresGroupes = new ArrayList<>(vols.keySet());
+        Collections.sort(heuresGroupes);
+
+        for (int idxGroupe = 0; idxGroupe < heuresGroupes.size(); idxGroupe++) {
+            String heureDepart = heuresGroupes.get(idxGroupe);
+            List<Reservation> reservationsBase = vols.get(heureDepart);
+            List<Reservation> reservationsGroupe = new ArrayList<>();
+            if (reservationsBase != null) {
+                reservationsGroupe.addAll(reservationsBase);
+            }
 
             // Ajouter les réservations en attente des groupes précédents
             reservationsGroupe.addAll(reservationsEnAttente);
             reservationsEnAttente = new ArrayList<>();
 
+            if (reservationsGroupe.isEmpty()) {
+                continue;
+            }
+
             // Sprint 8: Trier avec priorité aux réservations décalées, puis par nbPassager DESC
             trierAvecPrioriteDecalees(reservationsGroupe);
 
-            // Calculer l'heure de fin du groupe
-            String heureFinGroupe = ajouterMinutes(heureDepart, tempsAttente);
+            // Fenêtre de regroupement (Sprint 8)
             String heureDepartEffective = heureDepart;
-            String heureDepartTrajetGroupe = heureDepart;
+            String heureFinGroupe = ajouterMinutes(heureDepartEffective, tempsAttente);
             List<Reservation> nonAssigneesGroupe = new ArrayList<>(reservationsGroupe);
 
-            // Sprint 8: s'il existe des reservations decalees, attendre le premier retour
-            // de vehicule dans la fenetre du groupe pour les prioriser.
+            // Sprint 8: si on a des décalées mais aucun véhicule n'est disponible au début,
+            // on démarre le regroupement au premier retour/disponibilité dans la fenêtre.
             boolean contientReservationsDecalees = false;
             for (Reservation reservation : nonAssigneesGroupe) {
                 if (reservation.isDecalee()) {
@@ -267,25 +277,63 @@ public class PlanningDao {
                 }
             }
             if (contientReservationsDecalees) {
-                String premiereDisponibilite = trouverProchaineDisponibiliteDansFenetre(
+                // Si un véhicule est déjà disponible AVANT l'heure du groupe,
+                // le regroupement doit démarrer dès cette disponibilité (pas attendre l'heure du groupe).
+                // Exemple : véhicule dispo 10:00, groupe 10:10, réservation décalée déjà prête => départ possible à 10:00.
+                String debutDecalees = calculerDebutFenetrePourDecalees(
+                        nonAssigneesGroupe,
                         vehiculeHeureRetour,
-                        heureDepart,
-                        heureFinGroupe
+                        vehicules,
+                        heureDepart
                 );
-                if (premiereDisponibilite != null) {
-                    heureDepartEffective = premiereDisponibilite;
-                    heureDepartTrajetGroupe = premiereDisponibilite;
+                if (debutDecalees != null && debutDecalees.compareTo(heureDepartEffective) < 0) {
+                    heureDepartEffective = debutDecalees;
+                    heureFinGroupe = ajouterMinutes(heureDepartEffective, tempsAttente);
+                }
+
+                Map<Integer, Integer> placesAuDebut = initialiserPlacesRestantes(vehicules, vehiculeHeureRetour, heureDepartEffective);
+                if (placesAuDebut.isEmpty()) {
+                    String premiereDisponibilite = trouverProchaineDisponibiliteDansFenetre(
+                            vehiculeHeureRetour,
+                            vehicules,
+                            heureDepartEffective,
+                            heureFinGroupe
+                    );
+                    if (premiereDisponibilite != null) {
+                        heureDepartEffective = premiereDisponibilite;
+                        heureFinGroupe = ajouterMinutes(heureDepartEffective, tempsAttente);
+                    }
                 }
             }
-
-            // AGRÉGATION des assignations sur toutes les itérations de la boucle while
-            Map<Integer, List<ReservationAffectee>> assignationsPassageAgregees = new LinkedHashMap<>();
 
             // BOUCLE INTERNE AU GROUPE
             while (true) {
                 Map<Integer, Integer> placesRestantes = initialiserPlacesRestantes(vehicules, vehiculeHeureRetour, heureDepartEffective);
                 Map<Integer, List<ReservationAffectee>> assignationsPassage = new LinkedHashMap<>();
                 List<Reservation> encoreNonAssignees = new ArrayList<>();
+
+                // Aucun véhicule dispo : attendre un retour/disponibilité dans la fenêtre
+                if (placesRestantes.isEmpty()) {
+                    String prochaineDisponibilite = trouverProchaineDisponibiliteDansFenetre(
+                            vehiculeHeureRetour,
+                            vehicules,
+                            heureDepartEffective,
+                            heureFinGroupe
+                    );
+
+                    if (prochaineDisponibilite == null) {
+                        for (Reservation r : nonAssigneesGroupe) {
+                            r.setDecalee(true);
+                            reservationsEnAttente.add(r);
+                        }
+                        break;
+                    }
+
+                    heureDepartEffective = prochaineDisponibilite;
+                    heureFinGroupe = ajouterMinutes(heureDepartEffective, tempsAttente);
+                    trierAvecPrioriteDecalees(nonAssigneesGroupe);
+                    continue;
+                }
 
                 // Traiter les réservations avec assignation dynamique
                 // Map pour suivre combien de passagers restent pour chaque réservation
@@ -360,7 +408,7 @@ public class PlanningDao {
                     // (minimise l'écart de remplissage) pour stabiliser la répartition.
                     while (!passagersRestants.isEmpty() && placesRestantes.get(vehiculeChoisi) != null && placesRestantes.get(vehiculeChoisi) > 0) {
                         int placesDispo = placesRestantes.get(vehiculeChoisi);
-                        Integer idPlusProche = trouverReservationLaPlusProche(passagersRestants, placesDispo);
+                        Integer idPlusProche = trouverReservationLaPlusProche(nonAssigneesGroupe, passagersRestants, placesDispo);
                         if (idPlusProche == null) break;
 
                         Reservation rProche = trouverReservationParId(nonAssigneesGroupe, idPlusProche);
@@ -385,20 +433,36 @@ public class PlanningDao {
 
                 }
 
-                // AGRÉGER les assignations de ce passage au total du groupe
-                for (Map.Entry<Integer, List<ReservationAffectee>> entryPassage : assignationsPassage.entrySet()) {
-                    Integer vehiculeId = entryPassage.getKey();
-                    List<ReservationAffectee> fractions = entryPassage.getValue();
-
-                    if (!assignationsPassageAgregees.containsKey(vehiculeId)) {
-                        assignationsPassageAgregees.put(vehiculeId, new ArrayList<>());
-                    }
-                    assignationsPassageAgregees.get(vehiculeId).addAll(fractions);
-                }
-
                 // Incrémenter le compteur de trajets par véhicule
                 for (Integer vehiculeId : assignationsPassage.keySet()) {
                     trajetsParVehicule.put(vehiculeId, trajetsParVehicule.get(vehiculeId) + 1);
+                }
+
+                // Créer les trajets de CE passage (Sprint 8 : un trajet par passage/regroupement)
+                if (!assignationsPassage.isEmpty()) {
+                    boolean futureReservations = false;
+                    for (int j = idxGroupe + 1; j < heuresGroupes.size(); j++) {
+                        List<Reservation> prochaines = vols.get(heuresGroupes.get(j));
+                        if (prochaines != null && !prochaines.isEmpty()) {
+                            futureReservations = true;
+                            break;
+                        }
+                    }
+
+                    boolean aucuneReservationRestante = encoreNonAssignees.isEmpty() && reservationsEnAttente.isEmpty() && !futureReservations;
+                    boolean attendreFinFenetre = !aucuneReservationRestante;
+
+                    creerTrajetsPourVol(
+                            heureDepartEffective,
+                            heureFinGroupe,
+                            assignationsPassage,
+                            vehicules,
+                            vitesseMoyenne,
+                            vehiculeHeureRetour,
+                            trajets,
+                            heureDepartEffective,
+                            attendreFinFenetre
+                    );
                 }
 
                 // Vérifier si tout est assigné
@@ -406,16 +470,13 @@ public class PlanningDao {
                     break;
                 }
 
-                // Chercher le prochain véhicule qui se libère dans la fenêtre
-                String plusProchaineDisponibilite = null;
-                for (Map.Entry<Integer, String> retourEntry : vehiculeHeureRetour.entrySet()) {
-                    String heureRetour = retourEntry.getValue();
-                    if (heureRetour.compareTo(heureDepartEffective) > 0 && heureRetour.compareTo(heureFinGroupe) <= 0) {
-                        if (plusProchaineDisponibilite == null || heureRetour.compareTo(plusProchaineDisponibilite) < 0) {
-                            plusProchaineDisponibilite = heureRetour;
-                        }
-                    }
-                }
+                // Chercher le prochain véhicule qui se libère / devient dispo dans la fenêtre
+                String plusProchaineDisponibilite = trouverProchaineDisponibiliteDansFenetre(
+                        vehiculeHeureRetour,
+                        vehicules,
+                        heureDepartEffective,
+                        heureFinGroupe
+                );
 
                 if (plusProchaineDisponibilite == null) {
                     // Aucun véhicule ne revient dans la fenêtre
@@ -438,8 +499,22 @@ public class PlanningDao {
                 trierAvecPrioriteDecalees(nonAssigneesGroupe);
             }
 
-            // CRÉER UN SEUL TRAJET PAR VÉHICULE avec toutes les fractions du groupe
-            creerTrajetsPourVol(heureDepartTrajetGroupe, assignationsPassageAgregees, vehicules, vitesseMoyenne, vehiculeHeureRetour, trajets, heureDepart);
+            // Après le dernier groupe connu, si des réservations restent en attente,
+            // on continue à créer des regroupements au retour des véhicules.
+            if (idxGroupe == heuresGroupes.size() - 1 && !reservationsEnAttente.isEmpty()) {
+                String prochaineDisponibilite = trouverProchaineDisponibiliteApres(
+                        vehiculeHeureRetour,
+                        vehicules,
+                        heureFinGroupe
+                );
+
+                if (prochaineDisponibilite != null && !heuresGroupes.contains(prochaineDisponibilite)) {
+                    heuresGroupes.add(prochaineDisponibilite);
+                } else if (prochaineDisponibilite == null) {
+                    nonAssignees.addAll(reservationsEnAttente);
+                    reservationsEnAttente = new ArrayList<>();
+                }
+            }
         }
 
         // ÉTAPE 4 : Les réservations encore en attente après le DERNIER groupe
@@ -505,7 +580,16 @@ public class PlanningDao {
         return ids;
     }
 
-private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationAffectee>> assignationsVol, List<Vehicule> vehicules, double vitesseMoyenne, Map<Integer, String> vehiculeHeureRetour, List<Map<String, Object>> trajets, String groupeHeure) {
+    private void creerTrajetsPourVol(
+            String fenetreDebut,
+            String fenetreFin,
+            Map<Integer, List<ReservationAffectee>> assignationsVol,
+            List<Vehicule> vehicules,
+            double vitesseMoyenne,
+            Map<Integer, String> vehiculeHeureRetour,
+            List<Map<String, Object>> trajets,
+            String groupeHeure,
+            boolean attendreFinFenetre) {
         for (Map.Entry<Integer, List<ReservationAffectee>> assignation : assignationsVol.entrySet()) {
             int vehiculeId = assignation.getKey();
             List<ReservationAffectee> fractionsAssignees = assignation.getValue();
@@ -515,12 +599,19 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
             Map<Integer, Integer> qteParReservation = new HashMap<>();
             List<Map<String, Object>> detailsFractions = new ArrayList<>();  // Pour JSP
 
+            int totalPassagersAffectes = 0;
+            String heureArriveeMax = fenetreDebut;
             for (ReservationAffectee fraction : fractionsAssignees) {
                 Reservation res = fraction.getReservation();
                 reservationsForDistance.add(res);
                 int idRes = res.getId();
                 int currentQte = qteParReservation.getOrDefault(idRes, 0);
                 qteParReservation.put(idRes, currentQte + fraction.getNbPassagerAffecte());
+
+                totalPassagersAffectes += fraction.getNbPassagerAffecte();
+                if (res.getDateArrivee() != null && res.getDateArrivee().compareTo(heureArriveeMax) > 0) {
+                    heureArriveeMax = res.getDateArrivee();
+                }
 
                 // Créer un objet simple pour le JSP avec les infos de la fraction
                 Map<String, Object> detailFraction = new LinkedHashMap<>();
@@ -539,7 +630,34 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
 
             double distanceTotale = (Double) infosTrajet.get("distanceTotale");
             List<String> ordreTrajet = (List<String>) infosTrajet.get("ordreTrajet");
-            String heureRetour = calculerHeureRetour(heureVol, distanceTotale, vitesseMoyenne);
+
+            // Sprint 8: calcul de l'heure de départ
+            String heureDepartTrajet;
+            if (v != null && totalPassagersAffectes >= v.getNbrPlace()) {
+                // Plein => départ au moment où le véhicule atteint sa capacité
+                int cumul = 0;
+                String heureFullAt = fenetreDebut;
+                for (ReservationAffectee fraction : fractionsAssignees) {
+                    cumul += fraction.getNbPassagerAffecte();
+                    Reservation res = fraction.getReservation();
+                    if (res.getDateArrivee() != null && res.getDateArrivee().compareTo(heureFullAt) > 0) {
+                        heureFullAt = res.getDateArrivee();
+                    }
+                    if (cumul >= v.getNbrPlace()) {
+                        break;
+                    }
+                }
+                heureDepartTrajet = (heureFullAt.compareTo(fenetreDebut) > 0) ? heureFullAt : fenetreDebut;
+            } else {
+                // Pas plein => attendre fin de fenêtre sauf si plus rien à planifier
+                if (attendreFinFenetre) {
+                    heureDepartTrajet = fenetreFin;
+                } else {
+                    heureDepartTrajet = (heureArriveeMax.compareTo(fenetreDebut) > 0) ? heureArriveeMax : fenetreDebut;
+                }
+            }
+
+            String heureRetour = calculerHeureRetour(heureDepartTrajet, distanceTotale, vitesseMoyenne);
 
             vehiculeHeureRetour.put(vehiculeId, heureRetour);
 
@@ -549,7 +667,7 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
             trajet.put("qteParReservation", qteParReservation);  // Pour affichage en JSP
             trajet.put("distanceTotale", distanceTotale);
             trajet.put("ordreTrajet", ordreTrajet);
-            trajet.put("heureDepart", heureVol);
+            trajet.put("heureDepart", heureDepartTrajet);
             trajet.put("heureRetour", heureRetour);
             trajet.put("groupeHeure", groupeHeure);
             trajets.add(trajet);
@@ -581,17 +699,107 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
 
     private String trouverProchaineDisponibiliteDansFenetre(
             Map<Integer, String> vehiculeHeureRetour,
+            List<Vehicule> vehicules,
             String heureDebut,
             String heureFin) {
         String plusProchaineDisponibilite = null;
-        for (String heureRetour : vehiculeHeureRetour.values()) {
-            if (heureRetour.compareTo(heureDebut) > 0 && heureRetour.compareTo(heureFin) <= 0) {
-                if (plusProchaineDisponibilite == null || heureRetour.compareTo(plusProchaineDisponibilite) < 0) {
-                    plusProchaineDisponibilite = heureRetour;
+
+        for (Vehicule v : vehicules) {
+            String candidate = vehiculeHeureRetour.get(v.getId());
+            if (candidate == null) {
+                candidate = v.getHeureDisponibilite();
+            }
+
+            if (candidate != null && candidate.compareTo(heureDebut) > 0 && candidate.compareTo(heureFin) <= 0) {
+                if (plusProchaineDisponibilite == null || candidate.compareTo(plusProchaineDisponibilite) < 0) {
+                    plusProchaineDisponibilite = candidate;
+                }
+            }
+        }
+
+        return plusProchaineDisponibilite;
+    }
+
+    private String trouverProchaineDisponibiliteApres(
+            Map<Integer, String> vehiculeHeureRetour,
+            List<Vehicule> vehicules,
+            String heureApres) {
+        String plusProchaineDisponibilite = null;
+        for (Vehicule v : vehicules) {
+            String candidate = vehiculeHeureRetour.get(v.getId());
+            if (candidate == null) {
+                candidate = v.getHeureDisponibilite();
+            }
+
+            if (candidate != null && candidate.compareTo(heureApres) > 0) {
+                if (plusProchaineDisponibilite == null || candidate.compareTo(plusProchaineDisponibilite) < 0) {
+                    plusProchaineDisponibilite = candidate;
                 }
             }
         }
         return plusProchaineDisponibilite;
+    }
+
+    private String calculerDebutFenetrePourDecalees(
+            List<Reservation> reservationsGroupe,
+            Map<Integer, String> vehiculeHeureRetour,
+            List<Vehicule> vehicules,
+            String heureGroupe) {
+
+        String minArrivee = null;
+        boolean aDecalees = false;
+        for (Reservation r : reservationsGroupe) {
+            if (r.isDecalee()) {
+                aDecalees = true;
+            }
+            if (r.getDateArrivee() != null) {
+                if (minArrivee == null || r.getDateArrivee().compareTo(minArrivee) < 0) {
+                    minArrivee = r.getDateArrivee();
+                }
+            }
+        }
+
+        if (!aDecalees) return null;
+
+        String dispoAvantOuEgale = trouverDisponibiliteAvantOuEgale(
+                vehiculeHeureRetour,
+                vehicules,
+                heureGroupe
+        );
+        if (dispoAvantOuEgale == null) return null;
+
+        String debut = dispoAvantOuEgale;
+        if (minArrivee != null && debut.compareTo(minArrivee) < 0) {
+            debut = minArrivee;
+        }
+
+        return debut;
+    }
+
+    private String trouverDisponibiliteAvantOuEgale(
+            Map<Integer, String> vehiculeHeureRetour,
+            List<Vehicule> vehicules,
+            String heureMax) {
+        String plusProche = null;
+
+        for (Vehicule v : vehicules) {
+            String candidate = vehiculeHeureRetour.get(v.getId());
+            if (candidate == null) {
+                candidate = v.getHeureDisponibilite();
+            }
+
+            if (candidate == null) {
+                continue;
+            }
+
+            if (candidate.compareTo(heureMax) <= 0) {
+                if (plusProche == null || candidate.compareTo(plusProche) > 0) {
+                    plusProche = candidate;
+                }
+            }
+        }
+
+        return plusProche;
     }
 
     /**
@@ -666,11 +874,27 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
      * Trouve l'ID de la réservation la plus proche d'un nombre de places.
      * Critère : écart minimal entre nbPassagersRestants et placesDisponibles.
      */
-    private Integer trouverReservationLaPlusProche(Map<Integer, Integer> passagersRestants, int placesDisponibles) {
+    private Integer trouverReservationLaPlusProche(
+            List<Reservation> reservationsTriees,
+            Map<Integer, Integer> passagersRestants,
+            int placesDisponibles) {
+        boolean decaleeExiste = false;
+        for (Reservation r : reservationsTriees) {
+            Integer reste = passagersRestants.get(r.getId());
+            if (reste != null && reste > 0 && r.isDecalee()) {
+                decaleeExiste = true;
+                break;
+            }
+        }
+
         Integer idPlusProche = null;
         int ecartMin = Integer.MAX_VALUE;
 
         for (Map.Entry<Integer, Integer> entry : passagersRestants.entrySet()) {
+            Reservation r = trouverReservationParId(reservationsTriees, entry.getKey());
+            if (r == null) continue;
+            if (decaleeExiste && !r.isDecalee()) continue;
+
             int nbPassagers = entry.getValue();
             int ecart = Math.abs(nbPassagers - placesDisponibles);
             if (ecart < ecartMin) {
@@ -936,9 +1160,10 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
     }
 
     /**
-     * Sprint 8: Tri avec priorité aux réservations décalées.
-     * 1. Réservations décalées en premier (par nbPassager DESC)
-     * 2. Puis réservations normales (par nbPassager DESC)
+     * Sprint 8: Tri avec priorité stricte aux réservations décalées.
+     * 1) Décalées d'abord
+     * 2) Puis ordre chronologique (dateArrivee ASC)
+     * 3) Puis nbPassager DESC (tie-break)
      */
     private void trierAvecPrioriteDecalees(List<Reservation> reservations) {
         for (int i = 0; i < reservations.size() - 1; i++) {
@@ -948,13 +1173,24 @@ private void creerTrajetsPourVol(String heureVol, Map<Integer, List<ReservationA
 
                 boolean swap = false;
 
-                // Les décalées sont prioritaires
                 if (!r1.isDecalee() && r2.isDecalee()) {
                     swap = true;
                 } else if (r1.isDecalee() == r2.isDecalee()) {
-                    // Même statut décalée : trier par nbPassager DESC
-                    if (r1.getNbPassager() < r2.getNbPassager()) {
-                        swap = true;
+                    String d1 = r1.getDateArrivee();
+                    String d2 = r2.getDateArrivee();
+                    if (d1 != null && d2 != null) {
+                        if (d1.compareTo(d2) > 0) {
+                            swap = true;
+                        } else if (d1.compareTo(d2) == 0) {
+                            if (r1.getNbPassager() < r2.getNbPassager()) {
+                                swap = true;
+                            }
+                        }
+                    } else {
+                        // fallback : trier par nbPassager DESC
+                        if (r1.getNbPassager() < r2.getNbPassager()) {
+                            swap = true;
+                        }
                     }
                 }
 
