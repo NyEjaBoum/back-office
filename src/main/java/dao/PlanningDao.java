@@ -318,6 +318,9 @@ public class PlanningDao {
             }
             trierAvecPrioriteDecalees(nonAssigneesGroupe);
 
+            // Fix: Limite maximale de la fenêtre pour ce groupe (ne pas étendre au-delà)
+            String heureFinGroupeMax = heureFinGroupe;
+
             // BOUCLE INTERNE AU GROUPE
             while (true) {
                 Map<Integer, Integer> placesRestantes = initialiserPlacesRestantes(vehicules, vehiculeHeureRetour, heureDepartEffective);
@@ -335,7 +338,10 @@ public class PlanningDao {
 
                     if (prochaineDisponibilite == null) {
                         for (Reservation r : nonAssigneesGroupe) {
-                            r.setDecalee(true);
+                            // On ne décale que les réservations déjà dans la fenêtre courante.
+                            if (estReservationDansFenetreCourante(r, heureFinGroupe)) {
+                                r.setDecalee(true);
+                            }
                             reservationsEnAttente.add(r);
                         }
                         break;
@@ -344,10 +350,10 @@ public class PlanningDao {
                     heureDepartEffective = prochaineDisponibilite;
                     heureFinGroupe = ajouterMinutes(heureDepartEffective, tempsAttente);
 
-                    // Absorber les groupes futurs dont l'heure tombe dans la nouvelle fenêtre
+                    // Absorber les groupes futurs dont l'heure tombe dans la fenêtre MAX (pas la nouvelle fenêtre étendue)
                     for (int k = idxGroupe + 1; k < heuresGroupes.size(); k++) {
                         String cleGroupe = heuresGroupes.get(k);
-                        if (cleGroupe.compareTo(heureFinGroupe) > 0) break;
+                        if (cleGroupe.compareTo(heureFinGroupeMax) > 0) break;
                         List<Reservation> futurs = vols.get(cleGroupe);
                         if (futurs != null && !futurs.isEmpty()) {
                             nonAssigneesGroupe.addAll(futurs);
@@ -363,7 +369,13 @@ public class PlanningDao {
                 // Map pour suivre combien de passagers restent pour chaque réservation
                 Map<Integer, Integer> passagersRestants = new LinkedHashMap<>();
                 for (Reservation r : nonAssigneesGroupe) {
-                    passagersRestants.put(r.getId(), r.getNbPassager());
+                    // N'assigner dans ce passage que les réservations dont l'arrivée
+                    // est dans la fenêtre de regroupement courante.
+                    if (estReservationDansFenetreCourante(r, heureFinGroupe)) {
+                        passagersRestants.put(r.getId(), r.getNbPassager());
+                    } else {
+                        encoreNonAssignees.add(r);
+                    }
                 }
 
                 // Si une réservation ne peut pas être assignée d'un seul bloc,
@@ -506,7 +518,10 @@ public class PlanningDao {
                     // Aucun véhicule ne revient dans la fenêtre
                     // Reporter les non-assignées au prochain groupe (décalées)
                     for (Reservation r : encoreNonAssignees) {
-                        r.setDecalee(true);
+                        // Une réservation hors fenêtre ne doit pas être marquée décalée ici.
+                        if (estReservationDansFenetreCourante(r, heureFinGroupe)) {
+                            r.setDecalee(true);
+                        }
                         reservationsEnAttente.add(r);
                     }
                     break;
@@ -517,10 +532,10 @@ public class PlanningDao {
                 // La fenêtre s'étend à partir de l'heure de retour du véhicule
                 heureFinGroupe = ajouterMinutes(plusProchaineDisponibilite, tempsAttente);
 
-                // Absorber les groupes futurs dont l'heure tombe dans la nouvelle fenêtre
+                // Absorber les groupes futurs dont l'heure tombe dans la fenêtre MAX (pas la nouvelle fenêtre étendue)
                 for (int k = idxGroupe + 1; k < heuresGroupes.size(); k++) {
                     String cleGroupe = heuresGroupes.get(k);
-                    if (cleGroupe.compareTo(heureFinGroupe) > 0) break;
+                    if (cleGroupe.compareTo(heureFinGroupeMax) > 0) break;
                     List<Reservation> futurs = vols.get(cleGroupe);
                     if (futurs != null && !futurs.isEmpty()) {
                         encoreNonAssignees.addAll(futurs);
@@ -1220,5 +1235,15 @@ public class PlanningDao {
         ms += (long) minutes * 60 * 1000;
         return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
             .format(new java.util.Date(ms));
+    }
+
+    /**
+     * Vérifie si la réservation est éligible à une assignation dans la fenêtre courante.
+     * Si l'heure d'arrivée est absente, on considère la réservation éligible.
+     */
+    private boolean estReservationDansFenetreCourante(Reservation reservation, String heureFinFenetre) {
+        if (reservation == null) return false;
+        if (reservation.getDateArrivee() == null) return true;
+        return reservation.getDateArrivee().compareTo(heureFinFenetre) <= 0;
     }
 }

@@ -12,10 +12,10 @@
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css?v=2">
 </head>
 <body>
-    <nav class="nav-bar">
+    <nav class="nav-bar" style="position: relative;">
         <span class="nav-brand">Back Office</span>
         <%-- <span class="nav-brand">ETU003383    ETU003389   ETU3657</span> --%>
-        <p class="text-muted" style="font-size: x-large">ETU003383 - ETU003389 - ETU003657</p>
+        <p class="text-muted" style="position: absolute; left: 50%; transform: translateX(-50%); margin: 0; font-size: 3rem; font-weight: 800; line-height: 1; white-space: nowrap;">ETU003383 - ETU003389 - ETU003657</p>
         <a href="${pageContext.request.contextPath}/reservations">Reservations</a>
         <a href="${pageContext.request.contextPath}/vehicules">Vehicules</a>
         <a href="${pageContext.request.contextPath}/planning" class="active">Planning</a>
