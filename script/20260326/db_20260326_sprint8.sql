@@ -68,16 +68,16 @@ INSERT INTO distance ("from", "to", km) VALUES
 
 -- Véhicules avec capacités différentes
 INSERT INTO vehicule (reference, nbrPlace, typeCarburant,heureDisponibilite) VALUES
-    ('V1-DIESEL', 9, 'D','2026-03-26 10:00:00'),     -- id=1, Grand véhicule
-    ('V2-DIESEL', 7, 'D','2026-03-26 10:00:00');  -- id=2, Moyen véhicule
+    ('V1-DIESEL', 12, 'D','2026-03-26 11:45:00'),     -- id=1, Grand véhicule
+    ('V2-DIESEL', 14, 'D','2026-03-26 12:14:00');  -- id=2, Moyen véhicule
     -- ('V8-HYBRIDE', 8, 'H');       -- id=3, Petit véhicule
 
 -- Réservations du groupe 08:00
 INSERT INTO reservation (idClient, nbPassager, idLieu, dateArrivee) VALUES
-    ('CLIENT-001', 3, 2, '2026-03-26 08:00:00'),  -- R1: 15 pass -> Colbert
-    ('CLIENT-002', 7, 2, '2026-03-26 09:00:00'), -- R2: 10 pass -> Carlton
-    ('CLIENT-003', 12, 2, '2026-03-26 11:00:00'),  -- R2: 10 pass -> Carlton
-    ('CLIENT-004', 8, 2, '2026-03-26 11:00:00');   -- R3: 8 pass -> Palissandre
+    ('CLIENT-001', 7, 2, '2026-03-26 08:00:00'),  -- R1: 15 pass -> Colbert
+    ('CLIENT-002', 10, 2, '2026-03-26 12:00:00'), -- R2: 10 pass -> Carlton
+    ('CLIENT-003', 7, 2, '2026-03-26 12:10:00'),  -- R2: 10 pass -> Carlton
+    ('CLIENT-004', 3, 2, '2026-03-26 12:20:00');   -- R3: 8 pass -> Palissandre
 
 -- Nouvelles réservations à 08:30 (arrivent pendant le temps d'attente)
 -- INSERT INTO reservation (idClient, nbPassager, idLieu, dateArrivee) VALUES
