@@ -476,17 +476,13 @@ public class PlanningDao {
 
                 // Créer les trajets de CE passage (Sprint 8 : un trajet par passage/regroupement)
                 if (!assignationsPassage.isEmpty()) {
-                    boolean futureReservations = false;
-                    for (int j = idxGroupe + 1; j < heuresGroupes.size(); j++) {
-                        List<Reservation> prochaines = vols.get(heuresGroupes.get(j));
-                        if (prochaines != null && !prochaines.isEmpty()) {
-                            futureReservations = true;
-                            break;
-                        }
-                    }
+                    boolean resteDansFenetre = contientReservationDansFenetre(encoreNonAssignees, heureFinGroupe)
+                            || contientReservationDansFenetre(reservationsEnAttente, heureFinGroupe)
+                            || existeReservationFutureDansFenetre(vols, heuresGroupes, idxGroupe, heureFinGroupe);
 
-                    boolean aucuneReservationRestante = encoreNonAssignees.isEmpty() && reservationsEnAttente.isEmpty() && !futureReservations;
-                    boolean attendreFinFenetre = !aucuneReservationRestante;
+                    // On attend la fin de fenêtre uniquement s'il existe encore des clients
+                    // dont l'arrivée est dans la fenêtre courante.
+                    boolean attendreFinFenetre = resteDansFenetre;
 
                     creerTrajetsPourVol(
                             heureDepartEffective,
@@ -830,26 +826,29 @@ public class PlanningDao {
             Map<Integer, String> vehiculeHeureRetour,
             List<Vehicule> vehicules,
             String heureMax) {
-        String plusProche = null;
+        String premiereDisponibiliteRetour = null;
+        String plusProcheDispo = null;
 
         for (Vehicule v : vehicules) {
-            String candidate = vehiculeHeureRetour.get(v.getId());
-            if (candidate == null) {
-                candidate = v.getHeureDisponibilite();
+            String heureRetour = vehiculeHeureRetour.get(v.getId());
+            if (heureRetour != null && heureRetour.compareTo(heureMax) <= 0) {
+                if (premiereDisponibiliteRetour == null || heureRetour.compareTo(premiereDisponibiliteRetour) < 0) {
+                    premiereDisponibiliteRetour = heureRetour;
+                }
             }
 
-            if (candidate == null) {
-                continue;
-            }
-
-            if (candidate.compareTo(heureMax) <= 0) {
-                if (plusProche == null || candidate.compareTo(plusProche) > 0) {
-                    plusProche = candidate;
+            String heureDisponibilite = v.getHeureDisponibilite();
+            if (heureDisponibilite != null && heureDisponibilite.compareTo(heureMax) <= 0) {
+                if (plusProcheDispo == null || heureDisponibilite.compareTo(plusProcheDispo) > 0) {
+                    plusProcheDispo = heureDisponibilite;
                 }
             }
         }
 
-        return plusProche;
+        // Pour des réservations décalées, on démarre au premier retour réel disponible
+        // afin de lancer le regroupement dès que possible.
+        // En l'absence de retour réel, fallback sur la meilleure disponibilité statique.
+        return (premiereDisponibiliteRetour != null) ? premiereDisponibiliteRetour : plusProcheDispo;
     }
 
     /**
@@ -1245,5 +1244,34 @@ public class PlanningDao {
         if (reservation == null) return false;
         if (reservation.getDateArrivee() == null) return true;
         return reservation.getDateArrivee().compareTo(heureFinFenetre) <= 0;
+    }
+
+    private boolean contientReservationDansFenetre(List<Reservation> reservations, String heureFinFenetre) {
+        if (reservations == null || reservations.isEmpty()) return false;
+        for (Reservation reservation : reservations) {
+            if (estReservationDansFenetreCourante(reservation, heureFinFenetre)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean existeReservationFutureDansFenetre(
+            Map<String, List<Reservation>> vols,
+            List<String> heuresGroupes,
+            int idxGroupe,
+            String heureFinFenetre) {
+        for (int j = idxGroupe + 1; j < heuresGroupes.size(); j++) {
+            List<Reservation> prochaines = vols.get(heuresGroupes.get(j));
+            if (prochaines == null || prochaines.isEmpty()) {
+                continue;
+            }
+            for (Reservation reservation : prochaines) {
+                if (estReservationDansFenetreCourante(reservation, heureFinFenetre)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
